@@ -21,10 +21,14 @@ function icsEscape(s) {
   return String(s ?? '').replace(/[\r\n]+/g, ' ').replace(/([,;\\])/g, '\\$1')
 }
 
-const byDateTime = (a, b) => (a.date + a.time).localeCompare(b.date + b.time)
+// Kein localeCompare/toLocaleDateString in Schleifen: Intl ist in Safari so langsam, dass LiveLords beim Start ~4 s hing.
+// ISO-Datum/-Zeit sortieren als Text richtig; Titel über einen einmal angelegten Collator.
+const cmp = (x, y) => x < y ? -1 : x > y ? 1 : 0
+const byDateTime = (a, b) => cmp(a.date + a.time, b.date + b.time)
+const deCollator = new Intl.Collator('de')
 const pad = n => String(n).padStart(2, '0')
 // Lokales Datum als YYYY-MM-DD (toISOString wäre UTC: zwischen 0 und 2 Uhr "gestern")
-function addDays(n) { const d = new Date(); d.setDate(d.getDate() + n); return d.toLocaleDateString('sv-SE') }
+function addDays(n) { const d = new Date(); d.setDate(d.getDate() + n); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}` }
 const nowHM = () => { const d = new Date(); return pad(d.getHours()) + ':' + pad(d.getMinutes()) }
 const localDate = (date, time) => { const [y, m, d] = date.split('-').map(Number); const [h, min] = (time || '20:00').split(':').map(Number); return new Date(y, m - 1, d, h, min) }
 
@@ -101,7 +105,7 @@ function buildCards(list) {
   }
   const cards = [...map.values()]
   for (const c of cards) c.shows.sort(byDateTime)
-  return cards.sort((a, b) => a.date.localeCompare(b.date) || a.shows[0].time.localeCompare(b.shows[0].time) || a.title.localeCompare(b.title, 'de'))
+  return cards.sort((a, b) => cmp(a.date, b.date) || cmp(a.shows[0].time, b.shows[0].time) || deCollator.compare(a.title, b.title))
 }
 
 function groupByDay(cards) {
@@ -124,7 +128,8 @@ function statusOf(id) {
 
 const ICON = {
   trailer: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="4"/><path d="M10 9l5 3-5 3z" fill="currentColor"/></svg>',
-  letterboxd: '<svg width="20" height="16" viewBox="0 0 30 16" fill="currentColor"><circle cx="6" cy="8" r="5.5" opacity="0.65"/><circle cx="15" cy="8" r="5.5" opacity="0.85"/><circle cx="24" cy="8" r="5.5"/></svg>',
+  cinema: '<span style="font:800 9px/1 Arial,sans-serif; letter-spacing:0.04em; padding:3px 3px; border:1.5px solid currentColor; border-radius:4px;">CINEMA</span>',
+  filmdienst: '<span style="font:800 11px/1 Georgia,serif; padding:2px 4px; border:1.5px solid currentColor; border-radius:4px;">fd</span>',
   imdb: '<span style="font:800 11px/1 Arial,sans-serif; letter-spacing:-0.02em; padding:3px 4px; border:1.5px solid currentColor; border-radius:4px;">IMDb</span>',
   share: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7"/><path d="M16 6l-4-4-4 4"/><path d="M12 2v13"/></svg>',
   apple: '<svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M12.152 6.896c-.948 0-2.415-1.078-3.96-1.04-2.04.027-3.91 1.183-4.961 3.014-2.117 3.675-.546 9.103 1.519 12.09 1.013 1.454 2.208 3.09 3.792 3.039 1.52-.065 2.09-.987 3.935-.987 1.831 0 2.35.987 3.96.948 1.637-.026 2.676-1.48 3.676-2.948 1.156-1.688 1.636-3.325 1.662-3.415-.039-.013-3.182-1.221-3.22-4.857-.026-3.04 2.48-4.494 2.597-4.559-1.429-2.09-3.623-2.324-4.39-2.376-2-.156-3.675 1.09-4.61 1.09zM15.53 3.83c.843-1.012 1.4-2.427 1.245-3.83-1.207.052-2.662.805-3.532 1.818-.78.896-1.454 2.338-1.273 3.714 1.338.104 2.715-.688 3.559-1.701"/></svg>',
@@ -159,7 +164,8 @@ function renderIconRow(title, shareAttr) {
   return `
           <div class="icon-row">
             <a href="https://www.youtube.com/results?search_query=${encodeURIComponent(title + ' Trailer')}" target="_blank" rel="noopener" title="Trailer suchen" aria-label="Trailer auf YouTube suchen" class="icon-btn btn-glass">${ICON.trailer}</a>
-            <a href="https://letterboxd.com/search/films/${q}/" target="_blank" rel="noopener" title="Letterboxd" aria-label="Auf Letterboxd suchen" class="icon-btn btn-glass">${ICON.letterboxd}</a>
+            <a href="https://www.cinema.de/suche?query=${q}" target="_blank" rel="noopener" title="cinema.de" aria-label="Auf cinema.de suchen" class="icon-btn btn-glass">${ICON.cinema}</a>
+            <a href="https://www.filmdienst.de/suche/filme?SearchText=${q}" target="_blank" rel="noopener" title="Filmkritik auf filmdienst.de" aria-label="Filmkritik auf filmdienst.de suchen" class="icon-btn btn-glass">${ICON.filmdienst}</a>
             <a href="https://www.imdb.com/find/?q=${q}&s=tt" target="_blank" rel="noopener" title="IMDb" aria-label="Auf IMDb suchen" class="icon-btn btn-glass">${ICON.imdb}</a>
             <button type="button" ${shareAttr} title="Teilen" aria-label="Teilen" class="icon-btn btn-glass">${ICON.share}</button>
           </div>`
@@ -458,7 +464,7 @@ function guideIcon(token) {
   const chip = (inner, color = 'rgba(255,255,255,0.75)') => `<span style="display:inline-flex; align-items:center; justify-content:center; min-width:22px; height:20px; padding:0 5px; border-radius:6px; background:rgba(255,255,255,0.07); border:1px solid rgba(255,255,255,0.1); vertical-align:middle; margin:0 1px; color:${color}; font-size:12px; line-height:1;">${inner}</span>`
   const small = svg => svg.replace(/width="\d+" height="\d+"/, 'width="13" height="13"')
   const icons = {
-    trailer: chip(small(ICON.trailer)), letterboxd: chip(small(ICON.letterboxd)), imdb: chip('<b style="font:800 9px Arial;">IMDb</b>'),
+    trailer: chip(small(ICON.trailer)), cinema: chip('<b style="font:800 8px Arial;">CINEMA</b>'), filmdienst: chip('<b style="font:800 10px Georgia,serif;">fd</b>'), imdb: chip('<b style="font:800 9px Arial;">IMDb</b>'),
     share: chip(small(ICON.share)), apple: chip(small(ICON.apple)), google: chip(small(ICON.google)), ticket: chip(small(ICON.ticket)),
     herz: chip('♡', '#f472b6'), haken: chip('✓', '#34d399')
   }
@@ -477,7 +483,7 @@ const GUIDE = [
     ['Filtern und suchen', 'Nach Stadt, Kino und Sprachfassung filtern, über die Suchleiste nach einem Film oder Kino suchen. Über der Liste steht, wie viele Filme und Vorstellungen passen.'],
     ['Sprachfassung', 'Unter der Uhrzeit steht die Fassung: OmU = Original mit deutschen Untertiteln, OmeU = Original mit englischen Untertiteln, OV = Original ohne Untertitel. Ohne Zusatz läuft die deutsche Fassung (DF).'],
     ['Uhrzeit antippen', 'Öffnet das Menü der Vorstellung: {herz} „Merken“, {haken} „Dabei“, {ticket} Tickets und Kalender ({apple} Apple, {google} Google). Gemerkte Uhrzeiten sind rosa, „Dabei“ grün. Nach jeder Änderung erscheint unten kurz „Rückgängig“.'],
-    ['Icon-Leiste', '{trailer} Trailer (YouTube-Suche), {letterboxd} Letterboxd, {imdb} IMDb, {share} Teilen.'],
+    ['Icon-Leiste', '{trailer} Trailer (YouTube-Suche), {cinema} Suche auf cinema.de, {filmdienst} Filmkritik auf filmdienst.de, {imdb} IMDb, {share} Teilen.'],
     ['NEU', 'Filme, die seit Deinem letzten Besuch ins Programm gekommen sind.'],
     ['Suche leert sich selbst', 'Gibt es keinen Treffer, verschwindet der Suchbegriff nach 2 Sekunden. Gibt es Treffer, wird das Suchfeld geleert, sobald Du eine Vorstellung merkst, oder wenn Du 8 Sekunden lang nichts tippst oder berührst.'],
     ['Doppeltipp', 'Doppeltipp auf den Reiter „Filme“ springt ganz nach oben. Die Liste lädt beim Scrollen von selbst weiter.']
