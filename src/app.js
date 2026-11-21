@@ -47,7 +47,7 @@ const VERSION_LABEL = { DF: 'Deutsche Fassung', OmU: 'Original mit deutschen Unt
 let currentUser = null
 let screenings = []          // films.json: eine Zeile pro Vorstellung
 let byId = new Map()         // String(id) -> Vorstellung
-let filters = { city: 'Berlin', cinemaId: 'alle', version: 'alle', dates: [], search: '' }
+let filters = { city: 'Berlin', cinemaId: 'alle', film: 'alle', version: 'alle', dates: [], search: '' }
 let bookmarked = loadData('bookmarked') || []   // Vorstellungs-IDs als Strings; Server (cine_bookmarks) ist maßgeblich
 let going = loadData('going') || []
 const seenStored = loadData('seenFilms')
@@ -75,11 +75,13 @@ function saveMarks() { saveData('bookmarked', bookmarked); saveData('going', goi
 
 // ── Filter und Karten ─────────────────────────────────────────────────────────────────────────
 
-function matches(s) {
+function matches(s, { filmList = false } = {}) {   // filmList: Auswahl im Film-Dropdown, ohne Film- und Suchfilter
   const c = cinemasById.get(s.locationId)
   if (c.city !== filters.city) return false
   if (filters.cinemaId !== 'alle' && s.locationId !== Number(filters.cinemaId)) return false
   if (filters.version !== 'alle' && s.version !== filters.version) return false
+  if (filmList) return true
+  if (filters.film !== 'alle' && s.filmKey !== filters.film) return false
   if (filters.search) {
     const q = filters.search.toLowerCase()
     if (!s.title.toLowerCase().includes(q) && !c.name.toLowerCase().includes(q)) return false
@@ -88,9 +90,21 @@ function matches(s) {
 }
 
 // Heute bereits begonnene Vorstellungen fallen weg
-function upcomingFiltered() {
+function upcomingFiltered(opts) {
   const today = addDays(0), now = nowHM()
-  return screenings.filter(s => (s.date > today || (s.date === today && s.time >= now)) && matches(s))
+  return screenings.filter(s => (s.date > today || (s.date === today && s.time >= now)) && matches(s, opts))
+}
+
+// Film-Dropdown: [filmKey, Titel] aller Filme, die bei Stadt/Kino/Sprache noch laufen (kürzeste Schreibweise), alphabetisch.
+// Ein gewählter Film, der nach einem Filterwechsel nicht mehr läuft, wird zurückgesetzt.
+function filmOptions() {
+  const titles = new Map()
+  for (const s of upcomingFiltered({ filmList: true })) {
+    const t = titles.get(s.filmKey)
+    if (!t || s.title.length < t.length) titles.set(s.filmKey, s.title)
+  }
+  if (!titles.has(filters.film)) filters.film = 'alle'
+  return [...titles].sort((a, b) => deCollator.compare(a[1], b[1]))
 }
 
 // Vorstellungen -> Karten (eine pro Film und Tag), sortiert nach Tag und erster Uhrzeit
@@ -215,7 +229,7 @@ function renderDayGroup(date, cards) {
     </section>`
 }
 
-function hasActiveFilters() { return filters.search || filters.cinemaId !== 'alle' || filters.version !== 'alle' }
+function hasActiveFilters() { return filters.search || filters.cinemaId !== 'alle' || filters.film !== 'alle' || filters.version !== 'alle' }
 
 function renderFilmPane() {
   const shows = upcomingFiltered()
@@ -394,13 +408,15 @@ function renderFilters() {
   const seg = 'display:flex; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.07); border-radius:10px; padding:3px;'
   const segBtn = active => `flex:1; min-height:44px; padding:0 4px; border-radius:7px; cursor:pointer; border:none; ${active ? 'background:linear-gradient(135deg,rgba(159,29,63,0.55),rgba(249,115,22,0.45)); color:white; box-shadow:0 1px 8px rgba(159,29,63,0.25);' : 'background:transparent; color:rgba(255,255,255,0.65);'}`
   const field = 'width:100%; min-height:44px; padding:10px 12px; border-radius:10px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.08); color:white; outline:none;'
+  const selectStyle = active => `${field} flex:1; min-width:0; -webkit-appearance:none; appearance:none; background-image:linear-gradient(45deg, transparent 50%, rgba(255,255,255,0.6) 50%), linear-gradient(135deg, rgba(255,255,255,0.6) 50%, transparent 50%); background-position:calc(100% - 16px) 50%, calc(100% - 11px) 50%; background-size:5px 5px; background-repeat:no-repeat; padding-right:26px; text-overflow:ellipsis;${active ? ' border-color:rgba(253,186,116,0.6);' : ''}`
+  const films = filmOptions()
   return `
     <div class="glass rounded-2xl p-3 mb-5" style="display:flex; flex-direction:column; gap:8px;">
       <div style="${seg}" role="group" aria-label="Stadt">
         ${['Berlin', 'Leipzig'].map(c => `<button type="button" data-city="${c}" aria-pressed="${filters.city === c}" class="syne text-sm font-semibold" style="${segBtn(filters.city === c)}">${c}</button>`).join('')}
       </div>
       <div style="display:flex; gap:8px;">
-        <select id="cinema-select" aria-label="Kino" style="${field} flex:1; min-width:0; -webkit-appearance:none; appearance:none; background-image:linear-gradient(45deg, transparent 50%, rgba(255,255,255,0.6) 50%), linear-gradient(135deg, rgba(255,255,255,0.6) 50%, transparent 50%); background-position:calc(100% - 16px) 50%, calc(100% - 11px) 50%; background-size:5px 5px; background-repeat:no-repeat; padding-right:26px; text-overflow:ellipsis;">
+        <select id="cinema-select" aria-label="Kino" style="${selectStyle(filters.cinemaId !== 'alle')}">
           <option value="alle">Alle Kinos</option>
           ${cinemas.map(c => `<option value="${c.id}" ${String(c.id) === String(filters.cinemaId) ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}
         </select>
@@ -409,8 +425,15 @@ function renderFilters() {
           <button id="search-clear" type="button" aria-label="Suche löschen" style="position:absolute; right:0; top:50%; transform:translateY(-50%); width:38px; height:44px; border:none; background:transparent; color:rgba(255,255,255,0.6); font-size:18px; line-height:1; cursor:pointer; display:${filters.search ? 'flex' : 'none'}; align-items:center; justify-content:center; border-radius:50%;">×</button>
         </div>
       </div>
-      <div style="${seg}" role="group" aria-label="Sprachfassung">
-        ${['alle', 'DF', 'OmU', 'OmeU', 'OV'].map(v => `<button type="button" data-version="${v}" aria-pressed="${filters.version === v}" title="${v === 'alle' ? 'Alle Fassungen' : VERSION_LABEL[v]}" class="syne text-xs font-semibold" style="${segBtn(filters.version === v)}">${v === 'alle' ? 'Alle' : v}</button>`).join('')}
+      <div style="display:flex; gap:8px;">
+        <select id="film-select" aria-label="Film" style="${selectStyle(filters.film !== 'alle')}">
+          <option value="alle">Alle Filme</option>
+          ${films.map(([key, title]) => `<option value="${esc(key)}" ${key === filters.film ? 'selected' : ''}>${esc(title)}</option>`).join('')}
+        </select>
+        <select id="version-select" aria-label="Sprache" style="${selectStyle(filters.version !== 'alle')}">
+          <option value="alle">Sprache</option>
+          ${[['DF', 'Deutsch'], ['OmU', 'OmU'], ['OmeU', 'OmeU'], ['OV', 'OV']].map(([v, label]) => `<option value="${v}" ${filters.version === v ? 'selected' : ''}>${label}</option>`).join('')}
+        </select>
       </div>
     </div>`
 }
@@ -480,7 +503,7 @@ const GUIDE = [
   ]],
   ['Filme', [
     ['Überblick', 'Das Programm der nächsten zwei Wochen, eine Karte pro Film und Tag. Darunter stehen die Kinos mit allen Uhrzeiten. Vorstellungen, die heute schon begonnen haben, sind ausgeblendet.'],
-    ['Filtern und suchen', 'Nach Stadt, Kino und Sprachfassung filtern, über die Suchleiste nach einem Film oder Kino suchen. Über der Liste steht, wie viele Filme und Vorstellungen passen.'],
+    ['Filtern und suchen', 'Oben die Stadt wählen, darunter per Auswahlmenü Kino, Film und Sprache (Deutsch, OmU, OmeU, OV). Das Filmmenü zeigt nur Filme, die bei der gewählten Stadt, dem Kino und der Sprache laufen. Über die Suchleiste suchst Du frei nach einem Film oder Kino. Über der Liste steht, wie viele Filme und Vorstellungen passen.'],
     ['Sprachfassung', 'Unter der Uhrzeit steht die Fassung: OmU = Original mit deutschen Untertiteln, OmeU = Original mit englischen Untertiteln, OV = Original ohne Untertitel. Ohne Zusatz läuft die deutsche Fassung (DF).'],
     ['Uhrzeit antippen', 'Öffnet das Menü der Vorstellung: {herz} „Merken“, {haken} „Dabei“, {ticket} Tickets und Kalender ({apple} Apple, {google} Google). Gemerkte Uhrzeiten sind rosa, „Dabei“ grün. Nach jeder Änderung erscheint unten kurz „Rückgängig“.'],
     ['Icon-Leiste', '{trailer} Trailer (YouTube-Suche), {cinema} Suche auf cinema.de, {filmdienst} Filmkritik auf filmdienst.de, {imdb} IMDb, {share} Teilen.'],
@@ -778,13 +801,12 @@ function onClick(e) {
   if (d.shareCard) return shareCard(d.shareCard)
   if (d.shareShow) return shareShow(d.shareShow)
   if (d.city) { filters.city = d.city; filters.cinemaId = 'alle'; return refreshFilters() }
-  if (d.version) { filters.version = d.version; return refreshFilters() }
   if (d.date) { filters.dates = filters.dates.includes(d.date) ? filters.dates.filter(x => x !== d.date) : [...filters.dates, d.date]; return renderView() }
   if ('calPrev' in d) { calendarOffset--; return renderView() }
   if ('calNext' in d) { calendarOffset++; return renderView() }
   if ('calToday' in d) { calendarOffset = 0; return renderView() }
   if ('clearDates' in d) { filters.dates = []; return renderView() }
-  if ('resetFilters' in d) { filters.cinemaId = 'alle'; filters.version = 'alle'; filters.search = ''; searchTyped = false; return refreshFilters() }
+  if ('resetFilters' in d) { filters.cinemaId = 'alle'; filters.film = 'alle'; filters.version = 'alle'; filters.search = ''; searchTyped = false; return refreshFilters() }
   if ('dismissTip' in d) { saveData('tipSeen', true); t.closest('[data-first-tip]')?.remove(); return }
   if ('openHelp' in d) return openHelp()
   if ('closeHelp' in d) return closeHelp()
@@ -868,7 +890,9 @@ function bindGlobals() {
     searchDebounceTimer = setTimeout(() => commitSearch(true), 1000)
   })
   document.addEventListener('change', e => {
-    if (e.target.id === 'cinema-select') { filters.cinemaId = e.target.value; renderView() }
+    // Kino und Sprache ändern auch die Auswahl im Film-Dropdown, daher die ganze Filterleiste neu
+    const key = { 'cinema-select': 'cinemaId', 'film-select': 'film', 'version-select': 'version' }[e.target.id]
+    if (key) { filters[key] = e.target.value; refreshFilters() }
   })
   // Jede Eingabe oder Berührung startet die 8 Sekunden neu (nur bei einer Suche mit Treffern)
   const onActivity = () => { if (searchTyped && searchClearMs === SEARCH_IDLE_CLEAR_MS) armSearchAutoClear(false) }

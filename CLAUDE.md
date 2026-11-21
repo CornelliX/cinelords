@@ -24,7 +24,7 @@ Cinemas live in `src/data.js` (`CINEMAS`, id/name/city); scraper ids must match.
 
 ## Frontend (`src/`)
 
-- `app.js`: everything UI. Tabs Filme / Kalender / Gemerkt. One card per film and day (`buildCards`), one row per cinema with time chips; tapping/clicking a chip opens the sheet (`openSheet`: Merken, Dabei, Tickets, Apple .ics, Google Calendar). Every status change offers undo (`offerUndo`). Filters: city, cinema select, version, search (auto-clears: 2 s without hits, 8 s idle). List appends batches on scroll (`appendMoreCards`). One delegated click handler (`onClick`). The help guide is `GUIDE` in app.js: keep it in sync with feature changes.
+- `app.js`: everything UI. Tabs Filme / Kalender / Gemerkt. One card per film and day (`buildCards`), one row per cinema with time chips; tapping/clicking a chip opens the sheet (`openSheet`: Merken, Dabei, Tickets, Apple .ics, Google Calendar). Every status change offers undo (`offerUndo`). Filters: city, cinema select + search, film select ("Alle Filme", alphabetical via `deCollator`, options follow city/cinema/version, resets when the film drops out) + version select ("Sprache": Deutsch=DF/OmU/OmeU/OV), search auto-clears (2 s without hits, 8 s idle). List appends batches on scroll (`appendMoreCards`). One delegated click handler (`onClick`). The help guide is `GUIDE` in app.js: keep it in sync with feature changes.
 - `data.js`: `loadData/saveData` add the `cine-` prefix to every localStorage key; `getFilms()` consumes `window.__filmsP` (started in index.html) once.
 - `supabase.js`: same project as LiveLords, auth storageKey `cine-auth`, table `cine_bookmarks` (see `supabase/cine_bookmarks.sql`, RLS own rows only). Server is the source of truth for bookmarks; logout clears local lists.
 
