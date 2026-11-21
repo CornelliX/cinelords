@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CineLords</title>
+    <link rel="preconnect" href="https://cqxpjesovcavarrlljpn.supabase.co" crossorigin>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=block" rel="stylesheet" media="print" onload="this.media='all'">
+    <noscript><link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=block" rel="stylesheet"></noscript>
+    <!-- Kino-Intro nur beim ersten Öffnen je Sitzung; die Klasse muss vor dem ersten Bild stehen -->
+    <script>try { document.documentElement.classList.add(sessionStorage.getItem('cine-loaded') ? 'no-intro' : 'intro-on') } catch (e) { document.documentElement.classList.add('intro-on') }</script>
+    <!-- Filme schon jetzt anfordern (statt erst nach dem Bundle): src/data.js nimmt dieses Promise, siehe getFilms() -->
+    <script>window.__filmsP = fetch('./films.json').then(function (r) { return r.ok ? r.json() : null }).catch(function () { return null })</script>
+    <!-- async: Tailwind blockiert sonst das Parsen und damit den Start des App-Bundles -->
+    <script async src="https://cdn.tailwindcss.com"></script>
+    <link rel="manifest" href="./manifest.json" />
+    <meta name="theme-color" content="#14040a" />
+    <link rel="icon" type="image/png" href="./favicon.png" />
+    <link rel="apple-touch-icon" href="./apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-title" content="CineLords" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <style>
+      /* Kino-Intro: Filmvorspann-Countdown 3-2-1. Alles läuft über transform/opacity (Compositor), ohne Verzögerung;
+         die Zeitsteuerung (2 s) macht das Skript unten über requestAnimationFrame. */
+      #cine-intro { position:fixed; inset:0; z-index:9999; background:#0d0806; display:flex; align-items:center; justify-content:center; overflow:hidden; }
+      .no-intro #cine-intro { display:none; }
+      .leader { position:relative; width:min(82vw, 420px); aspect-ratio:1; animation:leader-flicker 0.14s steps(2) infinite; }
+      .leader-sweep { position:absolute; inset:0; border-radius:50%; background:conic-gradient(from 0deg, rgba(240,200,140,0) 0deg, rgba(240,200,140,0.16) 300deg, rgba(255,230,180,0.85) 358deg, rgba(240,200,140,0) 360deg); animation:leader-sweep 0.5333s linear 3 both; will-change:transform; }
+      .leader svg { position:absolute; inset:0; width:100%; height:100%; }
+      .leader-num { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font:700 min(40vw, 205px)/1 'Helvetica Neue', Arial, sans-serif; color:#f6e7cb; text-shadow:0 0 24px rgba(255,200,120,0.35); opacity:0; }
+      .leader-num.n3 { animation:leader-n3 1.6s linear both; }
+      .leader-num.n2 { animation:leader-n2 1.6s linear both; }
+      .leader-num.n1 { animation:leader-n1 1.6s linear both; }
+      .leader-grain { position:absolute; inset:-50%; pointer-events:none; opacity:0.5; background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.35'/%3E%3C/svg%3E"); animation:leader-grain 0.3s steps(1) infinite; will-change:transform; }
+      .leader-vignette { position:absolute; inset:0; pointer-events:none; background:radial-gradient(ellipse at center, transparent 45%, rgba(0,0,0,0.75) 100%); }
+      .leader-scratch { position:absolute; top:0; bottom:0; left:30%; width:1px; background:rgba(255,240,215,0.35); animation:leader-scratch 0.45s steps(1) infinite; }
+      .leader-credit { position:absolute; left:0; right:0; bottom:max(28px, env(safe-area-inset-bottom)); text-align:center; font:600 11px/1.6 'Helvetica Neue', Arial, sans-serif; letter-spacing:0.28em; color:rgba(246,231,203,0.6); }
+      @keyframes leader-sweep { from { transform:rotate(0deg); } to { transform:rotate(360deg); } }
+      @keyframes leader-n3 { 0%, 33.2% { opacity:1; } 33.3%, 100% { opacity:0; } }
+      @keyframes leader-n2 { 0%, 33.2% { opacity:0; } 33.3%, 66.5% { opacity:1; } 66.6%, 100% { opacity:0; } }
+      @keyframes leader-n1 { 0%, 66.5% { opacity:0; } 66.6%, 100% { opacity:1; } }
+      @keyframes leader-flicker { 0% { opacity:1; } 50% { opacity:0.93; } }
+      @keyframes leader-grain { 0% { transform:translate(0,0); } 25% { transform:translate(-7%,4%); } 50% { transform:translate(5%,-6%); } 75% { transform:translate(-3%,-2%); } }
+      @keyframes leader-scratch { 0% { transform:translateX(0); opacity:1; } 33% { transform:translateX(38vw); opacity:0.4; } 66% { transform:translateX(12vw); opacity:0; } }
+      @media (prefers-reduced-motion: reduce) { .leader, .leader-grain, .leader-scratch, .leader-sweep { animation:none; } }
+    </style>
+    <script type="module" crossorigin src="/cinelords/assets/index-Cmyh8mhN.js"></script>
+    <link rel="stylesheet" crossorigin href="/cinelords/assets/index-C1ZeCS8S.css">
+  </head>
+  <body class="bg-gray-950 text-white min-h-screen" style="background:#14040a;">
+    <!-- Kino-Intro: steht hier statt im Bundle, damit es mit dem ersten Bild erscheint. Konstant 2 s: 1,6 s ab dem
+         ersten Bild, dann 0,4 s Ausblenden (CSS-Übergang). Ist die App nach 1,6 s noch nicht fertig, wartet das Intro,
+         bis renderApp() window.__introRelease() aufruft. -->
+    <div id="cine-intro" aria-hidden="true">
+      <div class="leader-grain"></div>
+      <div class="leader">
+        <div class="leader-sweep"></div>
+        <svg viewBox="0 0 200 200" fill="none" stroke="rgba(246,231,203,0.75)">
+          <circle cx="100" cy="100" r="97" stroke-width="2.5"/>
+          <circle cx="100" cy="100" r="78" stroke-width="1.5"/>
+          <line x1="100" y1="0" x2="100" y2="200" stroke-width="1"/>
+          <line x1="0" y1="100" x2="200" y2="100" stroke-width="1"/>
+        </svg>
+        <div class="leader-num n3">3</div>
+        <div class="leader-num n2">2</div>
+        <div class="leader-num n1">1</div>
+      </div>
+      <div class="leader-scratch"></div>
+      <div class="leader-vignette"></div>
+      <div class="leader-credit">CINELORDS<br>MADE BY CRUX WITH CLAUDE</div>
+    </div>
+    <script>
+      (function () {
+        var el = document.getElementById('cine-intro'), d = document.documentElement
+        if (d.classList.contains('no-intro')) { el.remove(); return }
+        var ready = false, out = false, shown = 0, fadeStart = 0
+        function fadeOut() {
+          if (out || !ready) return
+          out = true; fadeStart = performance.now()
+          // CSS-Übergang: läuft im Compositor weiter, auch wenn die Seite danach kurz hängt
+          el.style.pointerEvents = 'none'; el.style.transition = 'opacity 0.4s ease-in-out'; el.style.opacity = '0'
+          d.classList.remove('intro-on')   // jetzt startet der Glow im Header
+        }
+        // Zeitsteuerung über die Bildwiederholung statt setTimeout: auf dem iPhone kamen Timer beim Start erst Sekunden später
+        function frame(t) {
+          if (!shown) shown = t
+          if (!out && t - shown >= 1600) fadeOut()
+          if (fadeStart && t - fadeStart > 450) { el.remove(); return }
+          requestAnimationFrame(frame)
+        }
+        requestAnimationFrame(frame)
+        window.__introRelease = function () {
+          ready = true
+          if (shown && performance.now() - shown >= 1600) fadeOut()
+        }
+        // Sicherung, falls die App nie fertig wird (z. B. Fehler): nach 10 s weg
+        setTimeout(function () { ready = true; fadeOut(); el.remove() }, 10000)
+      })()
+    </script>
+    <div id="app"></div>
+  </body>
+</html>
