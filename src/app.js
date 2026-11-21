@@ -85,7 +85,7 @@ function matches(s, { filmList = false } = {}) {   // filmList: Auswahl im Film-
   if (filters.cinemaId !== 'alle' && s.locationId !== Number(filters.cinemaId)) return false
   if (filters.favOnly && !favCinemas.has(s.locationId)) return false
   if (filters.version !== 'alle' && s.version !== filters.version) return false
-  if (filters.time !== 'alle' && s.time < filters.time) return false
+  if (filters.time.includes(':') && s.time < filters.time) return false
   if (filmList) return true
   if (filters.film !== 'alle' && s.filmKey !== filters.film) return false
   if (filters.search) {
@@ -249,7 +249,7 @@ function renderDayGroup(date, cards) {
     </section>`
 }
 
-function hasActiveFilters() { return filters.favOnly || filters.time !== 'alle' || filters.search || filters.cinemaId !== 'alle' || filters.film !== 'alle' || filters.version !== 'alle' }
+function hasActiveFilters() { return filters.favOnly || filters.time.includes(':') || filters.search || filters.cinemaId !== 'alle' || filters.film !== 'alle' || filters.version !== 'alle' }
 
 function renderFilmPane() {
   const shows = upcomingFiltered()
@@ -589,9 +589,9 @@ function renderFilters() {
       </div>
       <div style="display:flex; flex-wrap:wrap; gap:8px;">
         <button type="button" id="film-btn" data-film-list aria-haspopup="dialog" aria-label="Film wählen" style="${selectStyle(filters.film !== 'alle')} flex:1 1 109px; text-align:left; white-space:nowrap; overflow:hidden; cursor:pointer; font-size:16px;">${esc(films.find(f => f[0] === filters.film)?.[1] || 'Alle Filme')}</button>
-        <select id="time-select" aria-label="Zeit" style="${selectStyle(filters.time !== 'alle')} ${narrow} flex:1 1 101px;">
+        <select id="time-select" aria-label="Zeit" style="${selectStyle(filters.time.includes(':'))} ${narrow} flex:1 1 101px;">
           <option value="alle" hidden ${filters.time === 'alle' ? 'selected' : ''}>Zeit</option>
-          <option value="egal">Egal</option>
+          <option value="egal" ${filters.time === 'egal' ? 'selected' : ''}>Egal</option>
           ${['18', '19', '20', '21'].map(h => `<option value="${h}:00" ${filters.time === h + ':00' ? 'selected' : ''}>ab ${h} Uhr</option>`).join('')}
         </select>
         <select id="version-select" aria-label="Sprache" style="${selectStyle(filters.version !== 'alle')} ${narrow} flex:1 1 90px;">
@@ -1121,7 +1121,7 @@ function bindGlobals() {
   document.addEventListener('change', e => {
     // Kino und Sprache ändern auch die Auswahl im Film-Dropdown, daher die ganze Filterleiste neu
     const key = { 'cinema-select': 'cinemaId', 'version-select': 'version', 'time-select': 'time' }[e.target.id]
-    if (key) { filters[key] = e.target.value === 'egal' ? 'alle' : e.target.value; refreshFilters() }
+    if (key) { filters[key] = e.target.value; refreshFilters() }
   })
   // Jede Eingabe oder Berührung startet die 8 Sekunden neu (nur bei einer Suche mit Treffern)
   const onActivity = () => { if (searchTyped && searchClearMs === SEARCH_IDLE_CLEAR_MS) armSearchAutoClear(false) }
