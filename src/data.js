@@ -52,6 +52,7 @@ export const CINEMAS = [
   { id: 37, name: 'Cinémathèque', city: 'Leipzig' },
   { id: 38, name: 'Regina Palast', city: 'Leipzig' },
   { id: 39, name: 'CineStar Leipzig', city: 'Leipzig' },
+  { id: 40, name: 'Schauburg', city: 'Leipzig' },
 ]
 
 // index.html startet den Abruf schon vor dem Bundle (window.__filmsP); nur beim ersten Aufruf nutzbar, danach frisch laden

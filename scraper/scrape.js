@@ -290,6 +290,22 @@ async function scrapeRegina() {
   }).get()
 }
 
+// ─── Schauburg Leipzig (statische Liste: Datum nur beim ersten Eintrag des Tages, Fassung als "(in OmdU)" + <small>) ─
+
+async function scrapeSchauburg() {   // Links relativ zu <base href> = Domain
+  const url = 'https://www.schauburg-leipzig.de/kinoprogramm-schauburg-leipzig'
+  const $ = cheerio.load(await fetchText(url))
+  let date = null
+  return $('.item').map((_, el) => {
+    const e = $(el), d = e.find('.date-wrapper').first().text().trim()
+    if (/\d/.test(d)) date = parseDate(d)
+    const a = e.find('.title a').first(), note = a.find('small').text()
+    const title = a.clone().children().remove().end().text().replace(/\s*\(in [^)]*\)/i, '')
+    return { title, date, time: parseTime(e.find('.time').text()), locationId: 40,
+      version: detectVersion(a.text(), note), ticketUrl: a.attr('href') ? new URL(a.attr('href'), 'https://www.schauburg-leipzig.de/').href : url, source: 'schauburg' }
+  }).get().filter(s => s.date && s.time)
+}
+
 // ─── CineStar (Programmseite zeigt nur Filmkacheln; die Spielzeiten stehen gerendert auf jeder Filmseite) ─
 
 const CINESTAR = [['berlin-kino-in-der-kulturbrauerei', 13], ['kino-berlin-cubix-am-alexanderplatz', 28], ['kino-leipzig', 39]]
@@ -365,7 +381,7 @@ async function scrapeCinemotion() {
 
 // ─── Ablauf ─────────────────────────────────────────────────────────────────
 
-const SCRAPERS = { cinestar: scrapeCinestar, passage: scrapePassage, cineding: scrapeCineding, regina: scrapeRegina, yorck: scrapeYorck, kinoheld: scrapeKinoheld, cinetixx: scrapeCinetixx, babylon: scrapeBabylon, arsenal: scrapeArsenal, brotfabrik: scrapeBrotfabrik, cinemotion: scrapeCinemotion }
+const SCRAPERS = { cinestar: scrapeCinestar, passage: scrapePassage, cineding: scrapeCineding, regina: scrapeRegina, yorck: scrapeYorck, kinoheld: scrapeKinoheld, cinetixx: scrapeCinetixx, babylon: scrapeBabylon, arsenal: scrapeArsenal, brotfabrik: scrapeBrotfabrik, cinemotion: scrapeCinemotion, schauburg: scrapeSchauburg }
 
 async function main() {
   const only = process.argv[2]
