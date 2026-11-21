@@ -1,5 +1,5 @@
 import { CINEMAS, getFilms, saveData, loadData } from './data.js'
-import { loadBookmarks, setBookmark, getUser, peekUser, signInWithEmail, verifyOtp, signOut } from './supabase.js'
+import { loadBookmarks, setBookmark, getUser, peekUser, signInWithEmail, verifyOtp, signOut, loadHistory, addHistory, updateHistory, removeHistory, removeHistoryByScreening } from './supabase.js'
 
 // ── Hilfsfunktionen ───────────────────────────────────────────────────────────────────────────
 
@@ -66,6 +66,9 @@ let markSeenTimer = null
 let sheetId = null, sheetOpener = null
 let helpOpen = false
 let fetchSeq = 0
+let historyList = []         // cine_history: gesehene Filme (Snapshots), nur mit Login
+let historyEditId = null
+const archiving = new Set()  // Vorstellungs-IDs, deren Snapshot gerade angelegt wird
 
 function setScreenings(list) {
   screenings = Array.isArray(list) ? list.filter(s => cinemasById.has(s.locationId) && s.date && s.time && s.title) : []
@@ -357,13 +360,150 @@ function renderGemerkt() {
   return `<div class="space-y-8 pt-2">${g.length ? section('✓ Dabei', '#34d399', g) : ''}${b.length ? section('♡ Gemerkt', '#f472b6', b) : ''}</div>`
 }
 
+// ── History ───────────────────────────────────────────────────────────────────────────────────
+
+const fmtDate = date => { const [y, m, d] = date.split('-'); return `${d}.${m}.${y}` }
+// Vorbei = Beginn erreicht (für Vorstellungen und History-Einträge)
+const isPast = x => { const today = addDays(0); return x.date < today || (x.date === today && (x.time || '00:00') <= nowHM()) }
+
+// "Bin dabei" legt sofort einen Snapshot an (der Scraper entfernt vergangene Vorstellungen aus films.json);
+// die History zeigt ihn erst, wenn die Vorstellung begonnen hat
+async function archiveScreening(s) {
+  const id = String(s.id)
+  if (archiving.has(id) || historyList.some(h => h.screeningId === id)) return
+  archiving.add(id)
+  const c = cinemasById.get(s.locationId)
+  const entry = await addHistory({ screeningId: id, title: s.title, cinemaName: c.name, cinemaCity: c.city, date: s.date, time: s.time, version: s.version })
+  archiving.delete(id)
+  if (!entry) return
+  if (!going.includes(id) && !isPast(entry)) { removeHistory(entry.id); return }   // inzwischen wieder abgewählt
+  historyList.push(entry)
+  if (currentView === 'history') renderView()
+}
+
+// Beim Laden: "Dabei"-Vorstellungen ohne Snapshot nachtragen (außer bewusst aus der History gelöschte)
+function syncGoingToHistory() {
+  const dismissed = new Set(loadData('historyDismissed') || [])
+  for (const id of going) { const s = byId.get(String(id)); if (s && !dismissed.has(String(id))) archiveScreening(s) }
+}
+
+const EDIT_ICON = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>'
+
+function renderStars(h) {
+  return `<div role="group" aria-label="Bewertung" data-history-id="${h.id}" style="display:flex; margin-left:-9px;">${[1, 2, 3, 4, 5].map(n => `<button type="button" data-star="${n}" aria-label="${n} ${n === 1 ? 'Stern' : 'Sterne'}" aria-pressed="${n <= h.rating}" style="width:38px; height:44px; background:none; border:none; cursor:pointer; font-size:21px; line-height:1; color:${n <= h.rating ? '#fde047' : 'rgba(255,255,255,0.25)'};">★</button>`).join('')}</div>`
+}
+
+function renderHistoryRow(h) {
+  const meta = [[h.cinemaName, h.cinemaCity].filter(Boolean).join(', '), fmtDate(h.date) + (h.time ? `, ${h.time} Uhr` : ''), h.version && h.version !== 'DF' ? h.version : ''].filter(Boolean).join(' · ')
+  return `
+    <div class="glass rounded-xl" style="padding:10px 4px 2px 14px;">
+      <div style="display:flex; align-items:flex-start; gap:6px;">
+        <div style="flex:1; min-width:0; padding-top:3px;">
+          <div class="syne" style="font-weight:700; font-size:15px; color:white; line-height:1.3;">${esc(h.title)}</div>
+          <div style="font-size:12px; color:rgba(255,255,255,0.65); margin-top:2px; line-height:1.4;">${esc(meta)}</div>
+        </div>
+        <button type="button" data-history-edit="${h.id}" aria-label="${esc(h.title)} bearbeiten" title="Bearbeiten" aria-haspopup="dialog" style="width:44px; height:44px; flex-shrink:0; display:flex; align-items:center; justify-content:center; background:none; border:none; border-radius:10px; cursor:pointer; color:rgba(255,255,255,0.65);">${EDIT_ICON}</button>
+      </div>
+      ${renderStars(h)}
+    </div>`
+}
+
+function renderHistory() {
+  if (!currentUser) return `<div class="text-center py-14" style="color:rgba(255,255,255,0.7);"><p class="syne text-2xl mb-2">★</p><p class="text-sm">Melde Dich oben mit Deiner E-Mail an, um Deine gesehenen Filme zu sammeln.</p></div>`
+  const list = historyList.filter(isPast).sort((a, b) => cmp(b.date + b.time, a.date + a.time))
+  if (!list.length) return `
+    <div class="text-center py-14" style="color:rgba(255,255,255,0.7);">
+      <p class="syne text-2xl mb-2">★</p>
+      <p class="text-sm" style="font-weight:600;">Noch keine Filme in der History.</p>
+      <p class="text-xs" style="color:rgba(255,255,255,0.65); margin:6px 0 0; line-height:1.5;">Wähle bei einer Vorstellung „Bin dabei“: Nach Beginn<br>der Vorstellung steht der Film hier und Du kannst ihn bewerten.</p>
+    </div>`
+  return `
+    <div class="pt-2">
+      <p class="text-xs" style="color:rgba(255,255,255,0.65); margin:-6px 0 14px;">${list.length} ${list.length === 1 ? 'Film' : 'Filme'} gesehen</p>
+      <div class="space-y-3">${list.map(renderHistoryRow).join('')}</div>
+    </div>`
+}
+
+// Gleicher Stern nochmal = Bewertung entfernen
+async function rateHistory(id, n) {
+  const h = historyList.find(x => String(x.id) === String(id))
+  if (!h) return
+  const before = h.rating
+  const paint = () => { const el = document.querySelector(`[data-history-id="${h.id}"]`); if (el) el.outerHTML = renderStars(h) }
+  h.rating = h.rating === n ? 0 : n
+  paint()
+  if (!(await updateHistory(h.id, { rating: h.rating }))) { h.rating = before; paint(); showToast('Fehler', 'Die Bewertung konnte nicht gespeichert werden.') }
+}
+
+function openHistoryEdit(id, opener) {
+  const h = historyList.find(x => String(x.id) === String(id))
+  if (!h) return
+  historyEditId = h.id
+  sheetId = 'history-edit'
+  sheetOpener = opener || null
+  const field = 'display:block; width:100%; min-width:0; min-height:44px; padding:10px 12px; border-radius:10px; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.14); color:white; font-size:16px; outline:none; color-scheme:dark; -webkit-appearance:none; appearance:none;'
+  const label = (text, input) => `<label style="display:block; flex:1; min-width:0; font-size:12px; color:rgba(255,255,255,0.72); margin-bottom:10px;">${text}<div style="margin-top:4px;">${input}</div></label>`
+  const root = document.getElementById('sheet-root')
+  root.innerHTML = `
+    <div class="sheet-backdrop" data-close-sheet></div>
+    <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title">
+      <div aria-hidden="true" style="width:40px; height:4px; border-radius:2px; background:rgba(255,255,255,0.25); margin:0 auto 12px;"></div>
+      <h2 id="sheet-title" class="syne text-white" style="font-size:1.1rem; font-weight:800; margin-bottom:12px;">Eintrag bearbeiten</h2>
+      ${label('Titel', `<input id="hedit-title" type="text" maxlength="300" value="${esc(h.title)}" style="${field}">`)}
+      ${label('Kino', `<input id="hedit-cinema" type="text" maxlength="200" list="hedit-cinemas" value="${esc(h.cinemaName)}" style="${field}"><datalist id="hedit-cinemas">${CINEMAS.map(c => `<option value="${esc(c.name)}"></option>`).join('')}</datalist>`)}
+      <div style="display:flex; gap:8px;">
+        ${label('Datum', `<input id="hedit-date" type="date" max="${addDays(0)}" value="${esc(h.date)}" style="${field}">`)}
+        ${label('Uhrzeit', `<input id="hedit-time" type="time" value="${esc(h.time)}" style="${field}">`)}
+      </div>
+      <p id="hedit-hint" role="status" style="min-height:18px; font-size:12px; color:#fca5a5; margin-bottom:6px;"></p>
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+        <button type="button" data-hedit-delete class="sheet-btn" style="border:1px solid rgba(248,113,113,0.5); background:rgba(248,113,113,0.12); color:#fca5a5;">Löschen</button>
+        <button type="button" data-hedit-save class="sheet-btn" style="${PRIMARY_BG} border:1px solid rgba(253,186,116,0.4);">Speichern</button>
+      </div>
+      <button type="button" data-close-sheet class="w-full text-sm" style="min-height:44px; margin-top:6px; background:none; border:none; color:rgba(255,255,255,0.7); cursor:pointer;">Abbrechen</button>
+    </div>`
+  requestAnimationFrame(() => requestAnimationFrame(() => root.classList.add('sheet-open')))
+  root.querySelector('[data-hedit-save]').focus({ preventScroll: true })
+}
+
+async function saveHistoryEdit(btn) {
+  const h = historyList.find(x => x.id === historyEditId)
+  if (!h) return closeSheet()
+  const v = id => document.getElementById(id).value.trim()
+  const title = v('hedit-title'), cinemaName = v('hedit-cinema'), date = v('hedit-date'), time = v('hedit-time').slice(0, 5)
+  const hint = document.getElementById('hedit-hint')
+  if (!title || !/^\d{4}-\d{2}-\d{2}$/.test(date)) { hint.textContent = 'Bitte Titel und Datum angeben.'; return }
+  if (date > addDays(0)) { hint.textContent = 'Das Datum liegt in der Zukunft.'; return }
+  const known = CINEMAS.find(c => c.name.toLowerCase() === cinemaName.toLowerCase())
+  const fields = { title, cinemaName: known ? known.name : cinemaName, cinemaCity: known ? known.city : cinemaName === h.cinemaName ? h.cinemaCity : '', date, time }
+  btn.disabled = true
+  const ok = await updateHistory(h.id, fields)
+  btn.disabled = false
+  if (!ok) { hint.textContent = 'Speichern fehlgeschlagen, bitte nochmal versuchen.'; return }
+  Object.assign(h, fields)
+  closeSheet()
+  renderView()
+}
+
+async function deleteHistoryEdit() {
+  const h = historyList.find(x => x.id === historyEditId)
+  if (!h) return closeSheet()
+  if (!confirm(`„${h.title}“ aus der History löschen?`)) return
+  // Merken, damit syncGoingToHistory() den Eintrag nicht wieder anlegt (die Vorstellung bleibt "dabei")
+  if (h.screeningId) saveData('historyDismissed', [...new Set([...(loadData('historyDismissed') || []), h.screeningId])])
+  historyList = historyList.filter(x => x !== h)
+  closeSheet()
+  renderView()
+  if (!(await removeHistory(h.id))) { historyList.push(h); renderView(); showToast('Fehler', 'Der Eintrag konnte nicht gelöscht werden.') }
+}
+
 function renderView() {
   const view = document.getElementById('view')
   if (!view) return
   renderedCardLimit = CARD_BATCH
-  view.innerHTML = currentView === 'filme' ? renderFilmPane() : currentView === 'kalender' ? renderCalendar() : renderGemerkt()
+  view.innerHTML = currentView === 'filme' ? renderFilmPane() : currentView === 'kalender' ? renderCalendar() : currentView === 'history' ? renderHistory() : renderGemerkt()
   const bar = document.getElementById('filter-bar-wrap')
-  if (bar) bar.style.display = currentView === 'gemerkt' ? 'none' : ''
+  if (bar) bar.style.display = currentView === 'gemerkt' || currentView === 'history' ? 'none' : ''
   setupLoadMoreObserver()
   if (currentView === 'filme' && [...seenFilms].length !== new Set(screenings.map(s => s.filmKey)).size) {
     clearTimeout(markSeenTimer)
@@ -461,7 +601,8 @@ function renderBottomNav() {
   const tabs = [
     { id: 'filme', label: 'Filme', icon: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M7 3v18M17 3v18M3 8h4M3 16h4M17 8h4M17 16h4M3 12h18"/></svg>' },
     { id: 'kalender', label: 'Kalender', icon: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>' },
-    { id: 'gemerkt', label: 'Gemerkt', badge: count, icon: `<svg width="22" height="22" viewBox="0 0 24 24" fill="${count ? 'rgba(244,114,182,0.7)' : 'none'}" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>` }
+    { id: 'gemerkt', label: 'Gemerkt', badge: count, icon: `<svg width="22" height="22" viewBox="0 0 24 24" fill="${count ? 'rgba(244,114,182,0.7)' : 'none'}" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>` },
+    { id: 'history', label: 'History', icon: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l3 2"/></svg>' }
   ]
   return `
     <nav aria-label="Ansicht" style="max-width:576px; margin:0 auto; background:rgba(18,3,9,0.96); backdrop-filter:blur(24px); -webkit-backdrop-filter:blur(24px); border-top:1px solid rgba(255,255,255,0.07); display:flex; padding-bottom:env(safe-area-inset-bottom,0px);">
@@ -536,6 +677,11 @@ const GUIDE = [
   ['Gemerkt', [
     ['Meine Vorstellungen', 'Oben die Vorstellungen, bei denen Du {haken} dabei bist, darunter die {herz} gemerkten. Tippe auf die Uhrzeit, um den Status zu ändern oder Tickets zu holen. Vergangene Tage verschwinden von selbst.'],
     ['Doppeltipp', 'Doppeltipp auf den Reiter „Gemerkt“ springt ganz nach oben.']
+  ]],
+  ['History', [
+    ['Gesehene Filme', 'Jede Vorstellung, bei der Du {haken} „Bin dabei“ gewählt hast, steht nach ihrem Beginn automatisch hier, die neueste oben. Nimmst Du „Dabei“ vor der Vorstellung zurück, verschwindet sie wieder.'],
+    ['Bewerten', 'Tippe auf die Sterne, um den Film mit 1 bis 5 Sternen zu bewerten. Tippst Du denselben Stern nochmal, ist die Bewertung wieder weg.'],
+    ['Bearbeiten', 'Der Stift öffnet den Eintrag: Titel, Kino, Datum und Uhrzeit ändern, mit „Speichern“ übernehmen oder den Eintrag löschen.']
   ]],
   ['Anmeldung', [
     ['E-Mail-Code', 'Merken und „Dabei“ funktionieren nur mit Anmeldung per E-Mail-Code. Ohne Anmeldung kannst Du im Programm stöbern. Die Anmeldung ist unabhängig von LiveLords.']
@@ -680,6 +826,13 @@ function setStatus(id, next, { undoable = true } = {}) {
   saveMarks()
   if (before !== 'none') setBookmark(id, before, false)
   if (next !== 'none') setBookmark(id, next, true)
+  // History: Snapshot bei "Dabei" anlegen, beim Abwählen vor der Vorstellung wieder löschen
+  const s = byId.get(id)
+  if (next === 'going' && s) archiveScreening(s)
+  else if (before === 'going' && s && !isPast(s) && historyList.some(h => h.screeningId === id)) {
+    historyList = historyList.filter(h => h.screeningId !== id)
+    removeHistoryByScreening(id)
+  }
   paintStatus(id)
   if (next !== 'none') clearTypedSearch()
   if (undoable) offerUndo(id, before)
@@ -853,6 +1006,10 @@ function onClick(e) {
   const d = t.dataset
   if (d.show) return openSheet(d.show, t)
   if (d.sheet) return sheetAction(d.sheet)
+  if (d.star) return rateHistory(t.closest('[data-history-id]')?.dataset.historyId, Number(d.star))
+  if (d.historyEdit) return openHistoryEdit(d.historyEdit, t)
+  if ('heditSave' in d) return saveHistoryEdit(t)
+  if ('heditDelete' in d) return deleteHistoryEdit()
   if ('filmList' in d) return openFilmSheet(t)
   if (d.pickFilm) { filters.film = d.pickFilm; closeSheet(); refreshFilters(); return document.getElementById('film-btn')?.focus({ preventScroll: true }) }
   if (d.az) { const l = document.getElementById('film-list'), el = l.querySelector(`[data-first-letter="${d.az}"]`); if (el) { l.scrollTop = el.offsetTop; el.focus({ preventScroll: true }) } return }
@@ -930,6 +1087,7 @@ async function logout() {
   currentUser = null
   bookmarked = []
   going = []
+  historyList = []
   saveMarks()
   render()
 }
@@ -1011,13 +1169,14 @@ async function loadAccountData() {
   const loginChanged = !!user !== !!currentUser
   currentUser = user
   if (user) {
-    const bm = await loadBookmarks()
+    const [bm, hist] = await Promise.all([loadBookmarks(), loadHistory()])
     if (bm) { going = bm.going; bookmarked = bm.bookmarked.filter(id => !going.includes(id)); saveMarks() }
+    if (hist) { historyList = hist; syncGoingToHistory() }
   } else if (loginChanged) {
-    bookmarked = []; going = []; saveMarks()
+    bookmarked = []; going = []; historyList = []; saveMarks()
   }
   if (loginChanged) render()   // Anmeldung abgelaufen (oder neu): Kopf und Merkliste ändern sich
-  else if (user) paintAllStatuses()
+  else if (user) { paintAllStatuses(); if (currentView === 'history') renderView() }
 }
 
 // Beim Start steht die zuletzt gespeicherte Liste (sw.js); kommt im Hintergrund eine neuere, wird sie hier übernommen.

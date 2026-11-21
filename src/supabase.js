@@ -64,3 +64,49 @@ export async function setBookmark(screeningId, status, on) {
     : await supabase.from('cine_bookmarks').delete().eq('user_id', user.id).eq('screening_id', id).eq('status', status)
   return !error
 }
+
+// ── History (cine_history, siehe supabase/cine_history.sql) ─────────────────────────────────────
+const fromRow = r => ({ id: r.id, screeningId: r.screening_id, title: r.title, cinemaName: r.cinema_name || '', cinemaCity: r.cinema_city || '', date: r.date, time: r.time || '', version: r.version || '', rating: r.rating || 0 })
+
+// Liste der eigenen Einträge, null bei Fehler
+export async function loadHistory() {
+  const user = await getUser()
+  if (!user) return []
+  const { data, error } = await supabase.from('cine_history').select('*').eq('user_id', user.id)
+  return error ? null : data.map(fromRow)
+}
+
+// Snapshot einer Vorstellung anlegen; gibt den neuen Eintrag zurück (null bei Fehler oder schon vorhanden)
+export async function addHistory({ screeningId, title, cinemaName, cinemaCity, date, time, version }) {
+  const user = await getUser()
+  if (!user) return null
+  const { data, error } = await supabase.from('cine_history')
+    .insert({ user_id: user.id, screening_id: screeningId ?? null, title, cinema_name: cinemaName || null, cinema_city: cinemaCity || null, date, time: time || null, version: version || null })
+    .select().single()
+  return error ? null : fromRow(data)
+}
+
+// fields: { title?, cinemaName?, cinemaCity?, date?, time?, rating? }
+export async function updateHistory(id, fields) {
+  const user = await getUser()
+  if (!user) return false
+  const map = { title: 'title', cinemaName: 'cinema_name', cinemaCity: 'cinema_city', date: 'date', time: 'time', rating: 'rating' }
+  const row = {}
+  for (const [k, col] of Object.entries(map)) if (k in fields) row[col] = fields[k] === '' || fields[k] === 0 ? null : fields[k]
+  const { error } = await supabase.from('cine_history').update(row).eq('id', id).eq('user_id', user.id)
+  return !error
+}
+
+export async function removeHistory(id) {
+  const user = await getUser()
+  if (!user) return false
+  const { error } = await supabase.from('cine_history').delete().eq('id', id).eq('user_id', user.id)
+  return !error
+}
+
+export async function removeHistoryByScreening(screeningId) {
+  const user = await getUser()
+  if (!user) return false
+  const { error } = await supabase.from('cine_history').delete().eq('screening_id', String(screeningId)).eq('user_id', user.id)
+  return !error
+}
