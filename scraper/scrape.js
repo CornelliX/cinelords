@@ -107,7 +107,7 @@ async function scrapeYorck() {
 
 const KINOHELD = [
   ['hackesche-hoefe-kino', 5], ['central-kino', 6], ['lichtblick-kino-berlin', 11], ['b-ware-ladenkino', 14],
-  ['tilsiter-lichtspiele-programmkino-berlin', 16], ['kino-intimes-berlin', 17], ['toni-berlin', 18], ['city-kino-wedding-berlin-ab', 10], ['kino-krokodil', 12],
+  ['tilsiter-lichtspiele-programmkino-berlin', 16], ['kino-intimes-berlin', 17], ['toni-berlin', 18], ['city-kino-wedding-berlin-ab', 10], ['kino-krokodil', 12], ['kino-zukunft-berlin', 15], ['colosseum-filmtheater-berlin', 20],
 ]
 
 async function scrapeKinoheldCinema(slug, locationId) {
@@ -122,21 +122,23 @@ async function scrapeKinoheldCinema(slug, locationId) {
       if (!more) break
       await new Promise(r => setTimeout(r, 1500))
     }
-    const blocks = await page.$$eval('[data-program-movie]', els => els.map(el => ({ title: el.querySelector('span')?.innerText || '', text: el.innerText })))
-    const out = []
-    for (const { title, text } of blocks) {
-      let date = null
-      const lines = text.split('\n').map(l => l.trim()).filter(Boolean)
-      for (let i = 0; i < lines.length; i++) {
-        const l = lines[i]
-        if (/^(heute|morgen)$|^[a-z]{2}\.,?\s*\d{1,2}\.\d{1,2}\.?$/i.test(l)) { date = parseDate(l); continue }
-        if (date && /^\d{1,2}:\d{2}$/.test(l)) {
-          const tag = /^(omdu|omu|omeu|ov|of|ome?u|engl.*|deutsch)$/i.test(lines[i + 1] || '') ? lines[i + 1] : ''
-          out.push({ title, date, time: parseTime(l), locationId, version: detectVersion(tag, title), ticketUrl: url, source: 'kinoheld' })
-        }
-      }
-    }
-    return out
+    // Je Uhrzeit ein Link mit eigener Vorstellungs-Adresse; die Fassung steht in den Flags ("OV | Highlight")
+    // bzw. als Klammerzusatz im aria-label ("2001: A Space Odyssey (OV)") - nur den Zusatz nehmen, englische Titel enthalten oft "of"
+    const shows = await page.$$eval('[data-program-movie]', els => els.flatMap(el => {
+      const title = el.querySelector('span')?.innerText || ''
+      return [...el.querySelectorAll('[data-movie-playtimes-day-list]')].flatMap(day => {
+        const dayLabel = day.querySelector('[data-movie-playtimes-day-list-date]')?.innerText.trim() || ''
+        return [...day.querySelectorAll('a[data-show-link]')].map(a => ({
+          title, dayLabel, time: a.querySelector('[data-show-link-time]')?.innerText.trim() || '', href: a.href,
+          flags: [...a.querySelectorAll('[data-show-link-flag]')].map(f => f.innerText).join(' '),
+          labelTag: ((a.getAttribute('aria-label') || '').match(/\(([^()]*)\)\s*$/) || [])[1] || ''
+        }))
+      })
+    }))
+    return shows.filter(s => /^\d{1,2}:\d{2}$/.test(s.time)).map(s => ({
+      title: s.title, date: parseDate(s.dayLabel), time: parseTime(s.time), locationId,
+      version: detectVersion(s.flags, s.labelTag, s.title), ticketUrl: s.href || url, source: 'kinoheld'
+    })).filter(s => s.date)
   } finally { await page.close() }
 }
 

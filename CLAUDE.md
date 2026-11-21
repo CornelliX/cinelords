@@ -20,7 +20,7 @@ No tests or lint. `.github/workflows/deploy.yml` scrapes Wed+Thu 06:00 UTC and o
 
 `public/films.json`: one record per screening, `{ id, filmKey, title, date, time, locationId, version: 'DF'|'OmU'|'OmeU'|'OV', ticketUrl, source, addedAt }`. `id` = `stableId(locationId|date|time|filmKey)`, so bookmarks survive scraper runs. `filmKey` = normalised title (version tags, 3D, year etc. stripped, NFD) so the same film from several cinemas lands on one card. Window: next 14 days. A cinema that returns nothing keeps its screenings from the previous snapshot.
 
-Cinemas live in `src/data.js` (`CINEMAS`, id/name/city); scraper ids must match. Sources in `scraper/scrape.js`: yorck, kinoheld (Puppeteer), cinetixx, babylon, arsenal, brotfabrik, passage, cineding, regina, cinestar. Not covered: Kino Zukunft (site empty), UT Connewitz (mostly concerts), Colosseum (closed, domain for sale). Do not probe or introspect private APIs of ticketing platforms; scrape the public pages.
+Cinemas live in `src/data.js` (`CINEMAS`, id/name/city); scraper ids must match. Sources in `scraper/scrape.js`: yorck, kinoheld (Puppeteer), cinetixx, babylon, arsenal, brotfabrik, passage, cineding, regina, cinestar. Not covered: UT Connewitz (mostly concerts). Kino Zukunft and Colosseum (kino.colosseumberlin.com) come via kinoheld. Do not probe or introspect private APIs of ticketing platforms; scrape the public pages.
 
 ## Frontend (`src/`)
 

@@ -33,6 +33,8 @@ export const CINEMAS = [
   { id: 17, name: 'Kino Intimes', city: 'Berlin' },
   { id: 18, name: 'Toni', city: 'Berlin' },
   { id: 19, name: 'Brotfabrik', city: 'Berlin' },
+  { id: 15, name: 'Kino Zukunft', city: 'Berlin' },
+  { id: 20, name: 'Colosseum', city: 'Berlin' },
   { id: 31, name: 'Passage Kinos', city: 'Leipzig' },
   { id: 32, name: 'Schaubühne Lindenfels', city: 'Leipzig' },
   { id: 33, name: 'Cineding', city: 'Leipzig' },
