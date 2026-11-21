@@ -433,7 +433,7 @@ function renderFilters() {
         <div style="${seg} flex:1;" role="group" aria-label="Stadt">
           ${['Berlin', 'Leipzig'].map(c => `<button type="button" data-city="${c}" aria-pressed="${filters.city === c}" class="syne text-sm font-semibold" style="${segBtn(filters.city === c)}">${c}</button>`).join('')}
         </div>
-        <button type="button" data-fav-filter aria-pressed="${filters.favOnly}" aria-label="Nur Lieblingskinos zeigen" title="Nur Lieblingskinos" style="width:52px; flex-shrink:0; border-radius:10px; cursor:pointer; font-size:22px; line-height:1; ${filters.favOnly ? 'background:linear-gradient(135deg,rgba(159,29,63,0.55),rgba(249,115,22,0.45)); border:1px solid rgba(253,186,116,0.6); color:#fde047;' : 'background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.07); color:rgba(255,255,255,0.65);'}">${filters.favOnly ? '★' : '☆'}</button>
+          <button type="button" data-fav-filter aria-pressed="${filters.favOnly}" aria-label="Nur Lieblingskinos zeigen" title="Nur Lieblingskinos" style="width:52px; flex-shrink:0; border-radius:10px; cursor:pointer; font-size:22px; line-height:1; ${filters.favOnly ? 'background:linear-gradient(135deg,rgba(159,29,63,0.55),rgba(249,115,22,0.45)); border:1px solid rgba(253,186,116,0.6); color:#fde047;' : 'background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.07); color:rgba(255,255,255,0.65);'}">${filters.favOnly ? '★' : '☆'}</button>
       </div>
       <div style="display:flex; gap:8px;">
         <select id="cinema-select" aria-label="Kino" style="${selectStyle(filters.cinemaId !== 'alle')}">
@@ -520,7 +520,7 @@ const GUIDE = [
   ]],
   ['Filme', [
     ['Überblick', 'Das Programm der nächsten zwei Wochen, eine Karte pro Film und Tag. Darunter stehen die Kinos mit allen Uhrzeiten. Vorstellungen, die heute schon begonnen haben, sind ausgeblendet.'],
-    ['Filtern und suchen', 'Oben die Stadt wählen, darunter per Auswahlmenü Kino, Film und Sprache (Deutsch, OmU, OmeU, OV). „Alle Filme“ öffnet eine alphabetische Liste der Filme, die bei der gewählten Stadt, dem Kino und der Sprache laufen; scrollst Du darin nach unten, bringt Dich „↑ Alle Filme“ wieder an den Anfang. Über die Suchleiste suchst Du frei nach einem Film oder Kino. Über der Liste steht, wie viele Filme und Vorstellungen passen.'],
+    ['Filtern und suchen', 'Oben die Stadt wählen, darunter per Auswahlmenü Kino, Film und Sprache (Deutsch, OmU, OmeU, OV). „Alle Filme“ öffnet eine alphabetische Liste der Filme, die bei der gewählten Stadt, dem Kino und der Sprache laufen; scrollst Du darin nach unten, erscheint rechts eine Leiste A–Z (Buchstabe antippen springt zum ersten Film mit diesem Anfangsbuchstaben) und unten „↑ Alle Filme“, das Dich wieder an den Anfang bringt. Über die Suchleiste suchst Du frei nach einem Film oder Kino. Über der Liste steht, wie viele Filme und Vorstellungen passen.'],
     ['Lieblingskinos', 'In jeder Filmkarte steht neben dem Kinonamen ein Stern: antippen markiert das Kino als Lieblingskino (★), nochmal antippen hebt es wieder auf. Der Stern-Knopf neben Berlin/Leipzig zeigt dann nur noch Lieblingskinos mit ihren Filmen; das Kino-Menü listet nur sie. Die Lieblingskinos werden auf diesem Gerät gespeichert.'],
     ['Sprachfassung', 'Unter der Uhrzeit steht die Fassung: OmU = Original mit deutschen Untertiteln, OmeU = Original mit englischen Untertiteln, OV = Original ohne Untertitel. Ohne Zusatz läuft die deutsche Fassung (DF).'],
     ['Uhrzeit antippen', 'Öffnet das Menü der Vorstellung: {herz} „Merken“, {haken} „Dabei“, {ticket} Tickets und Kalender ({apple} Apple, {google} Google). Gemerkte Uhrzeiten sind rosa, „Dabei“ grün. Nach jeder Änderung erscheint unten kurz „Rückgängig“.'],
@@ -606,7 +606,12 @@ function openFilmSheet(opener) {
   const films = filmOptions()
   sheetId = 'film-list'
   sheetOpener = opener || null
-  const item = (key, title) => `<button type="button" data-pick-film="${esc(key)}" aria-pressed="${filters.film === key}" style="display:block; width:100%; min-height:44px; padding:10px 12px; text-align:left; border:none; border-radius:10px; cursor:pointer; font-size:15px; line-height:1.3; ${filters.film === key ? 'background:rgba(249,115,22,0.22); color:#fed7aa; font-weight:600;' : 'background:transparent; color:rgba(255,255,255,0.88);'}">${esc(title)}</button>`
+  // A–Z: erster Titel je Anfangsbuchstabe (Ä zählt zu A); Ziffern und Zeichen stehen davor
+  const letterOf = t => { const ch = t.normalize('NFD')[0].toUpperCase(); return ch >= 'A' && ch <= 'Z' ? ch : '#' }
+  const firstOf = new Map()
+  for (const [key, title] of films) { const l = letterOf(title); if (!firstOf.has(l)) firstOf.set(l, key) }
+  const firstKeys = new Map([...firstOf].map(([l, k]) => [k, l]))
+  const item = (key, title) => `<button type="button" data-pick-film="${esc(key)}"${firstKeys.has(key) ? ` data-first-letter="${firstKeys.get(key)}"` : ''} aria-pressed="${filters.film === key}" style="display:block; width:100%; min-height:44px; padding:10px 34px 10px 12px; text-align:left; border:none; border-radius:10px; cursor:pointer; font-size:15px; line-height:1.3; ${filters.film === key ? 'background:rgba(249,115,22,0.22); color:#fed7aa; font-weight:600;' : 'background:transparent; color:rgba(255,255,255,0.88);'}">${esc(title)}</button>`
   const root = document.getElementById('sheet-root')
   root.innerHTML = `
     <div class="sheet-backdrop" data-close-sheet></div>
@@ -618,13 +623,18 @@ function openFilmSheet(opener) {
           ${item('alle', 'Alle Filme')}
           ${films.map(([key, title]) => item(key, title)).join('')}
         </div>
+        <div id="az-bar" aria-label="Zum Anfangsbuchstaben springen" style="position:absolute; right:0; top:4px; bottom:60px; width:30px; display:none; flex-direction:column; border-radius:15px; background:rgba(18,3,10,0.85);">
+          ${[...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'].map(l => `<button type="button" data-az="${l}" ${firstOf.has(l) ? '' : 'disabled'} aria-label="Filme mit ${l}" style="flex:1; min-height:0; width:100%; padding:0; border:none; background:none; font-size:11px; font-weight:700; line-height:1; cursor:${firstOf.has(l) ? 'pointer' : 'default'}; color:${firstOf.has(l) ? '#fdba74' : 'rgba(255,255,255,0.25)'};">${l}</button>`).join('')}
+        </div>
         <button type="button" id="film-top" data-film-top aria-label="Nach oben zu Alle Filme" style="position:absolute; right:8px; bottom:8px; min-height:44px; padding:0 16px; border-radius:22px; border:1px solid rgba(253,186,116,0.5); background:rgba(107,15,42,0.95); color:#fed7aa; font-weight:700; cursor:pointer; box-shadow:0 4px 16px rgba(0,0,0,0.5); display:none;">↑ Alle Filme</button>
       </div>
       <button type="button" data-close-sheet class="w-full text-sm" style="min-height:44px; margin-top:6px; background:none; border:none; color:rgba(255,255,255,0.7); cursor:pointer;">Schließen</button>
     </div>`
   const list = root.querySelector('#film-list')
   const top = root.querySelector('#film-top')
-  list.addEventListener('scroll', () => { top.style.display = list.scrollTop > 200 ? 'block' : 'none' }, { passive: true })
+  const az = root.querySelector('#az-bar')
+  const onScroll = () => { const down = list.scrollTop > 200; top.style.display = down ? 'block' : 'none'; az.style.display = down ? 'flex' : 'none' }
+  list.addEventListener('scroll', onScroll, { passive: true })
   requestAnimationFrame(() => requestAnimationFrame(() => root.classList.add('sheet-open')))
   const current = root.querySelector('[data-pick-film][aria-pressed="true"]')
   current?.scrollIntoView({ block: 'center' })
@@ -845,6 +855,7 @@ function onClick(e) {
   if (d.sheet) return sheetAction(d.sheet)
   if ('filmList' in d) return openFilmSheet(t)
   if (d.pickFilm) { filters.film = d.pickFilm; closeSheet(); refreshFilters(); return document.getElementById('film-btn')?.focus({ preventScroll: true }) }
+  if (d.az) { const l = document.getElementById('film-list'), el = l.querySelector(`[data-first-letter="${d.az}"]`); if (el) { l.scrollTop = el.offsetTop; el.focus({ preventScroll: true }) } return }
   if ('filmTop' in d) { const l = document.getElementById('film-list'); l.scrollTop = 0; return l.querySelector('[data-pick-film]').focus({ preventScroll: true }) }
   if ('closeSheet' in d) return closeSheet()
   if (d.nav) return switchView(d.nav)
