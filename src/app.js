@@ -1027,7 +1027,7 @@ function onClick(e) {
   if (d.shareCard) return shareCard(d.shareCard)
   if (d.shareShow) return shareShow(d.shareShow)
   if (d.favCinema) return toggleFavCinema(Number(d.favCinema))
-  if ('favFilter' in d) { filters.favOnly = !filters.favOnly; saveData('favOnly', filters.favOnly); return refreshFilters() }
+  if ('favFilter' in d) { filters.favOnly = !filters.favOnly; filters.cinemaId = 'alle'; saveData('favOnly', filters.favOnly); return refreshFilters() }
   if (d.city) { filters.city = d.city; filters.cinemaId = 'alle'; return refreshFilters() }
   if (d.date) { filters.dates = filters.dates.includes(d.date) ? filters.dates.filter(x => x !== d.date) : [...filters.dates, d.date]; return renderView() }
   if ('calPrev' in d) { calendarOffset--; return renderView() }
