@@ -1,0 +1,48 @@
+name: Deploy & Scrape
+
+on:
+  push:
+    branches: [main]
+  # Kinos stellen ihr Wochenprogramm meist mittwochs/donnerstags online
+  schedule:
+    - cron: '0 6 * * 3,4'
+  workflow_dispatch:
+
+# Nie zwei Scraper-Läufe gleichzeitig (der langsamere würde Snapshot und Seite des anderen überschreiben)
+concurrency:
+  group: deploy-and-scrape
+  cancel-in-progress: false
+
+jobs:
+  scrape-and-deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run scraper
+        run: node scraper/scrape.js
+
+      # Frischen Stand nach main zurückschreiben: Kinos ohne Ergebnis fallen beim nächsten Lauf auf diesen Snapshot zurück
+      - name: Commit refreshed films.json
+        uses: stefanzweifel/git-auto-commit-action@4a55954c782fc1ea30b9056cd3e7a2b40ca8887d # v7.2.0
+        with:
+          commit_message: "chore: Kinoprogramm aktualisieren [skip ci]"
+          file_pattern: 'public/films.json'
+
+      - name: Build app
+        run: npm run build
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@84c30a85c19949d7eee79c4ff27748b70285e453 # v4.1.0
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./dist
