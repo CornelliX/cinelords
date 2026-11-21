@@ -1,7 +1,7 @@
 * { box-sizing: border-box; }
-body { font-family: 'DM Sans', sans-serif; overscroll-behavior-y: none; background: #12030a; }
+body { font-family: 'DM Sans', sans-serif; overscroll-behavior-y: none; background: #2e0817; }
 .syne { font-family: 'Syne', sans-serif; }
-.app-bg { background: radial-gradient(120% 70% at 20% 0%, rgba(122,16,48,0.35), transparent 60%), radial-gradient(90% 60% at 100% 100%, rgba(249,115,22,0.07), transparent 70%), linear-gradient(180deg, #12030a 0%, #1d0510 25%, #2a0717 45%, #360a1d 65%, #3a0b1f 85%, #2a0716 100%); }
+.app-bg { background: #2e0817; }
 .glass {
   background: rgba(30,6,15,0.97);
   backdrop-filter: blur(20px);
@@ -133,3 +133,6 @@ input:not([type="checkbox"]):not([type="radio"]), select, textarea { font-size: 
 }
 /* Sehr schmale Handys (320 px): Slogan etwas kleiner */
 @media (max-width: 340px) { .header-tagline { font-size: 1.75vw !important; } }
+
+/* Film | Zeit | Sprache passen erst ab ~374 px in eine Zeile, darunter bekommt der Film eine eigene */
+@media (max-width: 373px) { #film-btn { flex-basis: 100% !important; } }

@@ -86,7 +86,7 @@ function browser() { return browserP ||= puppeteer.launch({ headless: 'new', arg
 
 // ─── Yorck-Gruppe (Next.js-Seite enthält das komplette Programm als JSON) ───────────────────────
 
-const YORCK = { 'Filmtheater am Friedrichshain': 1, 'Kino International': 2, 'Blauer Stern': 3 }
+const YORCK = { 'Filmtheater am Friedrichshain': 1, 'Kino International': 2, 'Blauer Stern': 3, 'delphi LUX': 21, 'Delphi Filmpalast': 22, 'Kant Kino': 23, Odeon: 24, Passage: 25, 'Neues Off': 26, 'Cinema Paris': 27 }
 
 async function scrapeYorck() {
   const html = await fetchText('https://www.yorck.de/de/filme')
@@ -292,7 +292,7 @@ async function scrapeRegina() {
 
 // ─── CineStar (Programmseite zeigt nur Filmkacheln; die Spielzeiten stehen gerendert auf jeder Filmseite) ─
 
-const CINESTAR = [['berlin-kino-in-der-kulturbrauerei', 13], ['kino-leipzig', 39]]
+const CINESTAR = [['berlin-kino-in-der-kulturbrauerei', 13], ['kino-berlin-cubix-am-alexanderplatz', 28], ['kino-leipzig', 39]]
 
 async function scrapeCinestarCinema(slug, locationId) {
   const page = await (await browser()).newPage()
@@ -331,9 +331,41 @@ async function scrapeCinestar() {
   return out
 }
 
+// ─── CineMotion Hohenschönhausen (Programmseite rendert per JS; "Alle Vorstellungen" zeigt alle Tage) ─
+
+async function scrapeCinemotion() {
+  const url = 'https://berlin.cinemotion-kino.de/programmuebersicht/'
+  const page = await (await browser()).newPage()
+  try {
+    await page.setUserAgent(UA)
+    await page.setViewport({ width: 1300, height: 1000 })
+    await page.goto(url, { waitUntil: 'networkidle2', timeout: 60000 })
+    await page.waitForSelector('.movie-item', { timeout: 20000 })
+    await page.evaluate(() => [...document.querySelectorAll('a, button')].find(e => /^alle vorstellungen$/i.test(e.innerText.trim()))?.click())
+    await page.waitForFunction(() => document.querySelectorAll('.movie-times-item .showtime').length > 0, { timeout: 20000 })
+    const rows = await page.$$eval('.movie-item', items => items.flatMap(it => {
+      const h2 = it.querySelector('h2.title')
+      const title = (h2?.innerText.trim() || h2?.querySelector('img')?.alt || '').replace(/\s*-\s*Logo$/i, '').trim()
+      const times = it.querySelector('.movie-times')   // erste Zeitenliste (die zweite ist die Handy-Ansicht)
+      return [...(times?.querySelectorAll('.movie-times-item') || [])].flatMap(day => {
+        const date = day.querySelector('.date')?.innerText.trim() || ''
+        return [...day.querySelectorAll('.show-wrapper')].map(sw => ({
+          title, date, time: sw.querySelector('.showtime')?.innerText.trim() || '',
+          attrs: [...sw.querySelectorAll('[data-attribute]')].map(a => a.dataset.attribute).join(' '),
+        }))
+      })
+    }))
+    return rows.filter(r => r.title && /^\d{1,2}:\d{2}$/.test(r.time)).map(r => ({
+      title: r.title, date: parseDate(r.date), time: parseTime(r.time), locationId: 29,
+      version: /\bomeu\b/.test(r.attrs) ? 'OmeU' : /\b(omu|subtitled)\b/.test(r.attrs) ? 'OmU' : /\b(ov|of)\b/.test(r.attrs) ? 'OV' : 'DF',
+      ticketUrl: url, source: 'cinemotion',
+    }))
+  } finally { await page.close() }
+}
+
 // ─── Ablauf ─────────────────────────────────────────────────────────────────
 
-const SCRAPERS = { cinestar: scrapeCinestar, passage: scrapePassage, cineding: scrapeCineding, regina: scrapeRegina, yorck: scrapeYorck, kinoheld: scrapeKinoheld, cinetixx: scrapeCinetixx, babylon: scrapeBabylon, arsenal: scrapeArsenal, brotfabrik: scrapeBrotfabrik }
+const SCRAPERS = { cinestar: scrapeCinestar, passage: scrapePassage, cineding: scrapeCineding, regina: scrapeRegina, yorck: scrapeYorck, kinoheld: scrapeKinoheld, cinetixx: scrapeCinetixx, babylon: scrapeBabylon, arsenal: scrapeArsenal, brotfabrik: scrapeBrotfabrik, cinemotion: scrapeCinemotion }
 
 async function main() {
   const only = process.argv[2]
