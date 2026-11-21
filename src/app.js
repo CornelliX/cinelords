@@ -426,10 +426,7 @@ function renderFilters() {
         </div>
       </div>
       <div style="display:flex; gap:8px;">
-        <select id="film-select" aria-label="Film" style="${selectStyle(filters.film !== 'alle')}">
-          <option value="alle">Alle Filme</option>
-          ${films.map(([key, title]) => `<option value="${esc(key)}" ${key === filters.film ? 'selected' : ''}>${esc(title)}</option>`).join('')}
-        </select>
+        <button type="button" id="film-btn" data-film-list aria-haspopup="dialog" aria-label="Film wählen" style="${selectStyle(filters.film !== 'alle')} text-align:left; white-space:nowrap; overflow:hidden; cursor:pointer; font-size:16px;">${esc(films.find(f => f[0] === filters.film)?.[1] || 'Alle Filme')}</button>
         <select id="version-select" aria-label="Sprache" style="${selectStyle(filters.version !== 'alle')}">
           <option value="alle">Sprache</option>
           ${[['DF', 'Deutsch'], ['OmU', 'OmU'], ['OmeU', 'OmeU'], ['OV', 'OV']].map(([v, label]) => `<option value="${v}" ${filters.version === v ? 'selected' : ''}>${label}</option>`).join('')}
@@ -503,7 +500,7 @@ const GUIDE = [
   ]],
   ['Filme', [
     ['Überblick', 'Das Programm der nächsten zwei Wochen, eine Karte pro Film und Tag. Darunter stehen die Kinos mit allen Uhrzeiten. Vorstellungen, die heute schon begonnen haben, sind ausgeblendet.'],
-    ['Filtern und suchen', 'Oben die Stadt wählen, darunter per Auswahlmenü Kino, Film und Sprache (Deutsch, OmU, OmeU, OV). Das Filmmenü zeigt nur Filme, die bei der gewählten Stadt, dem Kino und der Sprache laufen. Über die Suchleiste suchst Du frei nach einem Film oder Kino. Über der Liste steht, wie viele Filme und Vorstellungen passen.'],
+    ['Filtern und suchen', 'Oben die Stadt wählen, darunter per Auswahlmenü Kino, Film und Sprache (Deutsch, OmU, OmeU, OV). „Alle Filme“ öffnet eine alphabetische Liste der Filme, die bei der gewählten Stadt, dem Kino und der Sprache laufen; scrollst Du darin nach unten, bringt Dich „↑ Alle Filme“ wieder an den Anfang. Über die Suchleiste suchst Du frei nach einem Film oder Kino. Über der Liste steht, wie viele Filme und Vorstellungen passen.'],
     ['Sprachfassung', 'Unter der Uhrzeit steht die Fassung: OmU = Original mit deutschen Untertiteln, OmeU = Original mit englischen Untertiteln, OV = Original ohne Untertitel. Ohne Zusatz läuft die deutsche Fassung (DF).'],
     ['Uhrzeit antippen', 'Öffnet das Menü der Vorstellung: {herz} „Merken“, {haken} „Dabei“, {ticket} Tickets und Kalender ({apple} Apple, {google} Google). Gemerkte Uhrzeiten sind rosa, „Dabei“ grün. Nach jeder Änderung erscheint unten kurz „Rückgängig“.'],
     ['Icon-Leiste', '{trailer} Trailer (YouTube-Suche), {cinema} Suche auf cinema.de, {filmdienst} Filmkritik auf filmdienst.de, {imdb} IMDb, {share} Teilen.'],
@@ -581,6 +578,36 @@ function openSheet(id, opener) {
     </div>`
   requestAnimationFrame(() => requestAnimationFrame(() => root.classList.add('sheet-open')))
   root.querySelector('[data-sheet]')?.focus({ preventScroll: true })
+}
+
+// Film-Auswahl als Blatt: lange Liste mit "↑ Alle Filme", sobald man nach unten gescrollt hat
+function openFilmSheet(opener) {
+  const films = filmOptions()
+  sheetId = 'film-list'
+  sheetOpener = opener || null
+  const item = (key, title) => `<button type="button" data-pick-film="${esc(key)}" aria-pressed="${filters.film === key}" style="display:block; width:100%; min-height:44px; padding:10px 12px; text-align:left; border:none; border-radius:10px; cursor:pointer; font-size:15px; line-height:1.3; ${filters.film === key ? 'background:rgba(249,115,22,0.22); color:#fed7aa; font-weight:600;' : 'background:transparent; color:rgba(255,255,255,0.88);'}">${esc(title)}</button>`
+  const root = document.getElementById('sheet-root')
+  root.innerHTML = `
+    <div class="sheet-backdrop" data-close-sheet></div>
+    <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title">
+      <div aria-hidden="true" style="width:40px; height:4px; border-radius:2px; background:rgba(255,255,255,0.25); margin:0 auto 12px;"></div>
+      <h2 id="sheet-title" class="syne text-white" style="font-size:1.1rem; font-weight:800; margin-bottom:8px;">Film wählen <span style="font-size:0.8rem; font-weight:400; color:rgba(255,255,255,0.6);">(${films.length})</span></h2>
+      <div style="position:relative;">
+        <div id="film-list" style="max-height:min(62vh, 520px); overflow-y:auto; overscroll-behavior:contain; -webkit-overflow-scrolling:touch;">
+          ${item('alle', 'Alle Filme')}
+          ${films.map(([key, title]) => item(key, title)).join('')}
+        </div>
+        <button type="button" id="film-top" data-film-top aria-label="Nach oben zu Alle Filme" style="position:absolute; right:8px; bottom:8px; min-height:44px; padding:0 16px; border-radius:22px; border:1px solid rgba(253,186,116,0.5); background:rgba(107,15,42,0.95); color:#fed7aa; font-weight:700; cursor:pointer; box-shadow:0 4px 16px rgba(0,0,0,0.5); display:none;">↑ Alle Filme</button>
+      </div>
+      <button type="button" data-close-sheet class="w-full text-sm" style="min-height:44px; margin-top:6px; background:none; border:none; color:rgba(255,255,255,0.7); cursor:pointer;">Schließen</button>
+    </div>`
+  const list = root.querySelector('#film-list')
+  const top = root.querySelector('#film-top')
+  list.addEventListener('scroll', () => { top.style.display = list.scrollTop > 200 ? 'block' : 'none' }, { passive: true })
+  requestAnimationFrame(() => requestAnimationFrame(() => root.classList.add('sheet-open')))
+  const current = root.querySelector('[data-pick-film][aria-pressed="true"]')
+  current?.scrollIntoView({ block: 'center' })
+  current?.focus({ preventScroll: true })
 }
 
 function closeSheet() {
@@ -795,6 +822,9 @@ function onClick(e) {
   const d = t.dataset
   if (d.show) return openSheet(d.show, t)
   if (d.sheet) return sheetAction(d.sheet)
+  if ('filmList' in d) return openFilmSheet(t)
+  if (d.pickFilm) { filters.film = d.pickFilm; closeSheet(); refreshFilters(); return document.getElementById('film-btn')?.focus({ preventScroll: true }) }
+  if ('filmTop' in d) { const l = document.getElementById('film-list'); l.scrollTop = 0; return l.querySelector('[data-pick-film]').focus({ preventScroll: true }) }
   if ('closeSheet' in d) return closeSheet()
   if (d.nav) return switchView(d.nav)
   if (d.gotoView) return switchView(d.gotoView)
@@ -891,7 +921,7 @@ function bindGlobals() {
   })
   document.addEventListener('change', e => {
     // Kino und Sprache ändern auch die Auswahl im Film-Dropdown, daher die ganze Filterleiste neu
-    const key = { 'cinema-select': 'cinemaId', 'film-select': 'film', 'version-select': 'version' }[e.target.id]
+    const key = { 'cinema-select': 'cinemaId', 'version-select': 'version' }[e.target.id]
     if (key) { filters[key] = e.target.value; refreshFilters() }
   })
   // Jede Eingabe oder Berührung startet die 8 Sekunden neu (nur bei einer Suche mit Treffern)
