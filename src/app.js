@@ -47,7 +47,8 @@ const VERSION_LABEL = { DF: 'Deutsche Fassung', OmU: 'Original mit deutschen Unt
 let currentUser = null
 let screenings = []          // films.json: eine Zeile pro Vorstellung
 let byId = new Map()         // String(id) -> Vorstellung
-let filters = { city: 'Berlin', cinemaId: 'alle', film: 'alle', version: 'alle', dates: [], search: '' }
+let filters = { city: 'Berlin', cinemaId: 'alle', film: 'alle', version: 'alle', dates: [], search: '', favOnly: loadData('favOnly') === true }
+let favCinemas = new Set(loadData('favCinemas') || [])   // Lieblingskinos (IDs), nur auf diesem Gerät
 let bookmarked = loadData('bookmarked') || []   // Vorstellungs-IDs als Strings; Server (cine_bookmarks) ist maßgeblich
 let going = loadData('going') || []
 const seenStored = loadData('seenFilms')
@@ -79,6 +80,7 @@ function matches(s, { filmList = false } = {}) {   // filmList: Auswahl im Film-
   const c = cinemasById.get(s.locationId)
   if (c.city !== filters.city) return false
   if (filters.cinemaId !== 'alle' && s.locationId !== Number(filters.cinemaId)) return false
+  if (filters.favOnly && !favCinemas.has(s.locationId)) return false
   if (filters.version !== 'alle' && s.version !== filters.version) return false
   if (filmList) return true
   if (filters.film !== 'alle' && s.filmKey !== filters.film) return false
@@ -163,12 +165,26 @@ function renderChip(s) {
   return `<button type="button" class="chip" data-show="${esc(s.id)}" data-st="${st}" aria-haspopup="dialog" aria-label="${esc(chipLabel(s, st))}">${chipInner(s, st)}</button>`
 }
 
+function favButton(locId) {
+  const on = favCinemas.has(locId)
+  return `<button type="button" class="fav-btn" data-fav-cinema="${locId}" aria-pressed="${on}" aria-label="${esc(cinemasById.get(locId).name)} als Lieblingskino ${on ? 'entfernen' : 'markieren'}">${on ? '★' : '☆'}</button>`
+}
+
+function toggleFavCinema(locId) {
+  if (favCinemas.has(locId)) favCinemas.delete(locId); else favCinemas.add(locId)
+  saveData('favCinemas', [...favCinemas])
+  if (filters.favOnly) return refreshFilters()
+  document.querySelectorAll(`[data-fav-cinema="${locId}"]`).forEach(b => { b.outerHTML = favButton(locId) })
+  const bar = document.getElementById('filter-bar-wrap')
+  if (bar) bar.innerHTML = renderFilters()   // Kino-Menü zeigt Lieblingskinos mit Stern
+}
+
 function renderCinemaRows(shows) {
   const rows = new Map()
   for (const s of shows) (rows.get(s.locationId) || rows.set(s.locationId, []).get(s.locationId)).push(s)
   return [...rows].map(([locId, list]) => `
           <div class="cine-row">
-            <div class="cine-name">${esc(cinemasById.get(locId).name)}</div>
+            <div class="cine-name">${esc(cinemasById.get(locId).name)}${favButton(locId)}</div>
             <div class="chips">${list.map(renderChip).join('')}</div>
           </div>`).join('')
 }
@@ -229,14 +245,14 @@ function renderDayGroup(date, cards) {
     </section>`
 }
 
-function hasActiveFilters() { return filters.search || filters.cinemaId !== 'alle' || filters.film !== 'alle' || filters.version !== 'alle' }
+function hasActiveFilters() { return filters.favOnly || filters.search || filters.cinemaId !== 'alle' || filters.film !== 'alle' || filters.version !== 'alle' }
 
 function renderFilmPane() {
   const shows = upcomingFiltered()
   const cards = buildCards(shows)
   const tip = loadData('tipSeen') ? '' : `<div data-first-tip class="glass rounded-2xl" style="display:flex; align-items:flex-start; gap:4px; padding:10px 4px 10px 14px; margin-bottom:16px;"><p class="text-xs" style="flex:1; color:rgba(255,255,255,0.8); line-height:1.5; margin-top:5px;"><strong style="color:white;">Tipp:</strong> Tippe auf eine Uhrzeit, um die Vorstellung zu merken, Tickets zu holen oder sie in Deinen Kalender zu übernehmen. Alles Weitere steht unter Hilfe.</p><button data-dismiss-tip aria-label="Tipp schließen" style="width:44px; height:44px; flex-shrink:0; background:none; border:none; color:rgba(255,255,255,0.7); font-size:22px; cursor:pointer;">×</button></div>`
   if (!cards.length) {
-    return `${tip}<div class="text-center py-20" style="color:rgba(255,255,255,0.65);"><p class="syne text-2xl mb-2">—</p><p class="text-sm">Keine Vorstellungen gefunden.</p>${hasActiveFilters() ? `<button data-reset-filters class="btn-glass rounded-xl syne text-sm font-semibold" style="height:44px; padding:0 22px; margin-top:18px; color:white;">Filter zurücksetzen</button>` : ''}</div>`
+    return `${tip}<div class="text-center py-20" style="color:rgba(255,255,255,0.65);"><p class="syne text-2xl mb-2">—</p><p class="text-sm">Keine Vorstellungen gefunden.</p>${filters.favOnly && !CINEMAS.some(c => c.city === filters.city && favCinemas.has(c.id)) ? `<p class="text-sm" style="margin-top:10px; line-height:1.5;">Du hast in ${esc(filters.city)} noch keine Lieblingskinos. Schalte den Stern-Filter aus und tippe in einer Filmkarte auf ☆ neben dem Kinonamen.</p>` : ''}${hasActiveFilters() ? `<button data-reset-filters class="btn-glass rounded-xl syne text-sm font-semibold" style="height:44px; padding:0 22px; margin-top:18px; color:white;">Filter zurücksetzen</button>` : ''}</div>`
   }
   const films = new Set(cards.map(c => c.filmKey)).size
   const hasMore = cards.length > renderedCardLimit
@@ -404,7 +420,8 @@ function renderAccountBox() {
 }
 
 function renderFilters() {
-  const cinemas = CINEMAS.filter(c => c.city === filters.city).sort((a, b) => a.name.localeCompare(b.name, 'de'))
+  const cinemas = CINEMAS.filter(c => c.city === filters.city && (!filters.favOnly || favCinemas.has(c.id))).sort((a, b) => deCollator.compare(a.name, b.name))
+  if (filters.cinemaId !== 'alle' && !cinemas.some(c => String(c.id) === String(filters.cinemaId))) filters.cinemaId = 'alle'
   const seg = 'display:flex; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.07); border-radius:10px; padding:3px;'
   const segBtn = active => `flex:1; min-height:44px; padding:0 4px; border-radius:7px; cursor:pointer; border:none; ${active ? 'background:linear-gradient(135deg,rgba(159,29,63,0.55),rgba(249,115,22,0.45)); color:white; box-shadow:0 1px 8px rgba(159,29,63,0.25);' : 'background:transparent; color:rgba(255,255,255,0.65);'}`
   const field = 'width:100%; min-height:44px; padding:10px 12px; border-radius:10px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.08); color:white; outline:none;'
@@ -412,13 +429,16 @@ function renderFilters() {
   const films = filmOptions()
   return `
     <div class="glass rounded-2xl p-3 mb-5" style="display:flex; flex-direction:column; gap:8px;">
-      <div style="${seg}" role="group" aria-label="Stadt">
-        ${['Berlin', 'Leipzig'].map(c => `<button type="button" data-city="${c}" aria-pressed="${filters.city === c}" class="syne text-sm font-semibold" style="${segBtn(filters.city === c)}">${c}</button>`).join('')}
+      <div style="display:flex; gap:8px;">
+        <div style="${seg} flex:1;" role="group" aria-label="Stadt">
+          ${['Berlin', 'Leipzig'].map(c => `<button type="button" data-city="${c}" aria-pressed="${filters.city === c}" class="syne text-sm font-semibold" style="${segBtn(filters.city === c)}">${c}</button>`).join('')}
+        </div>
+        <button type="button" data-fav-filter aria-pressed="${filters.favOnly}" aria-label="Nur Lieblingskinos zeigen" title="Nur Lieblingskinos" style="width:52px; flex-shrink:0; border-radius:10px; cursor:pointer; font-size:22px; line-height:1; ${filters.favOnly ? 'background:linear-gradient(135deg,rgba(159,29,63,0.55),rgba(249,115,22,0.45)); border:1px solid rgba(253,186,116,0.6); color:#fde047;' : 'background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.07); color:rgba(255,255,255,0.65);'}">${filters.favOnly ? '★' : '☆'}</button>
       </div>
       <div style="display:flex; gap:8px;">
         <select id="cinema-select" aria-label="Kino" style="${selectStyle(filters.cinemaId !== 'alle')}">
-          <option value="alle">Alle Kinos</option>
-          ${cinemas.map(c => `<option value="${c.id}" ${String(c.id) === String(filters.cinemaId) ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}
+          <option value="alle">${filters.favOnly ? 'Alle Lieblingskinos' : 'Alle Kinos'}</option>
+          ${cinemas.map(c => `<option value="${c.id}" ${String(c.id) === String(filters.cinemaId) ? 'selected' : ''}>${favCinemas.has(c.id) ? '★ ' : ''}${esc(c.name)}</option>`).join('')}
         </select>
         <div style="position:relative; flex:1; min-width:0;">
           <input id="search-input" type="search" aria-label="Film oder Kino suchen" placeholder="Suche…" value="${esc(filters.search)}" style="${field} padding-right:34px; -webkit-appearance:none; appearance:none;" />
@@ -501,6 +521,7 @@ const GUIDE = [
   ['Filme', [
     ['Überblick', 'Das Programm der nächsten zwei Wochen, eine Karte pro Film und Tag. Darunter stehen die Kinos mit allen Uhrzeiten. Vorstellungen, die heute schon begonnen haben, sind ausgeblendet.'],
     ['Filtern und suchen', 'Oben die Stadt wählen, darunter per Auswahlmenü Kino, Film und Sprache (Deutsch, OmU, OmeU, OV). „Alle Filme“ öffnet eine alphabetische Liste der Filme, die bei der gewählten Stadt, dem Kino und der Sprache laufen; scrollst Du darin nach unten, bringt Dich „↑ Alle Filme“ wieder an den Anfang. Über die Suchleiste suchst Du frei nach einem Film oder Kino. Über der Liste steht, wie viele Filme und Vorstellungen passen.'],
+    ['Lieblingskinos', 'In jeder Filmkarte steht neben dem Kinonamen ein Stern: antippen markiert das Kino als Lieblingskino (★), nochmal antippen hebt es wieder auf. Der Stern-Knopf neben Berlin/Leipzig zeigt dann nur noch Lieblingskinos mit ihren Filmen; das Kino-Menü listet nur sie. Die Lieblingskinos werden auf diesem Gerät gespeichert.'],
     ['Sprachfassung', 'Unter der Uhrzeit steht die Fassung: OmU = Original mit deutschen Untertiteln, OmeU = Original mit englischen Untertiteln, OV = Original ohne Untertitel. Ohne Zusatz läuft die deutsche Fassung (DF).'],
     ['Uhrzeit antippen', 'Öffnet das Menü der Vorstellung: {herz} „Merken“, {haken} „Dabei“, {ticket} Tickets und Kalender ({apple} Apple, {google} Google). Gemerkte Uhrzeiten sind rosa, „Dabei“ grün. Nach jeder Änderung erscheint unten kurz „Rückgängig“.'],
     ['Icon-Leiste', '{trailer} Trailer (YouTube-Suche), {cinema} Suche auf cinema.de, {filmdienst} Filmkritik auf filmdienst.de, {imdb} IMDb, {share} Teilen.'],
@@ -830,13 +851,15 @@ function onClick(e) {
   if (d.gotoView) return switchView(d.gotoView)
   if (d.shareCard) return shareCard(d.shareCard)
   if (d.shareShow) return shareShow(d.shareShow)
+  if (d.favCinema) return toggleFavCinema(Number(d.favCinema))
+  if ('favFilter' in d) { filters.favOnly = !filters.favOnly; saveData('favOnly', filters.favOnly); return refreshFilters() }
   if (d.city) { filters.city = d.city; filters.cinemaId = 'alle'; return refreshFilters() }
   if (d.date) { filters.dates = filters.dates.includes(d.date) ? filters.dates.filter(x => x !== d.date) : [...filters.dates, d.date]; return renderView() }
   if ('calPrev' in d) { calendarOffset--; return renderView() }
   if ('calNext' in d) { calendarOffset++; return renderView() }
   if ('calToday' in d) { calendarOffset = 0; return renderView() }
   if ('clearDates' in d) { filters.dates = []; return renderView() }
-  if ('resetFilters' in d) { filters.cinemaId = 'alle'; filters.film = 'alle'; filters.version = 'alle'; filters.search = ''; searchTyped = false; return refreshFilters() }
+  if ('resetFilters' in d) { filters.favOnly = false; saveData('favOnly', false); filters.cinemaId = 'alle'; filters.film = 'alle'; filters.version = 'alle'; filters.search = ''; searchTyped = false; return refreshFilters() }
   if ('dismissTip' in d) { saveData('tipSeen', true); t.closest('[data-first-tip]')?.remove(); return }
   if ('openHelp' in d) return openHelp()
   if ('closeHelp' in d) return closeHelp()

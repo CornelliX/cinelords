@@ -84,7 +84,10 @@ input::placeholder { color: rgba(255,255,255,0.5); }
 .card-stripe { height: 2px; background: linear-gradient(90deg, #9f1d3f, #fdba74 45%, transparent); }
 .cine-row { padding: 10px 0; }
 .cine-row + .cine-row { border-top: 1px solid rgba(255,255,255,0.06); }
-.cine-name { font-size: 12px; color: rgba(255,255,255,0.72); margin-bottom: 7px; }
+.cine-name { font-size: 12px; color: rgba(255,255,255,0.72); margin-bottom: 7px; display: flex; align-items: center; }
+/* Stern: 44 px Tippfläche, ohne die Zeile höher zu machen */
+.fav-btn { width: 44px; height: 44px; margin: -14px 0 -14px -6px; flex-shrink: 0; background: none; border: none; cursor: pointer; font-size: 17px; line-height: 1; color: rgba(255,255,255,0.6); }
+.fav-btn[aria-pressed="true"] { color: #fde047; }
 .chips { display: flex; flex-wrap: wrap; gap: 8px; }
 .chip {
   min-width: 64px; min-height: 44px; padding: 4px 12px; border-radius: 10px; cursor: pointer;
