@@ -171,7 +171,7 @@ function renderFilmCard(card) {
       <div class="card-stripe"></div>
       <div class="p-4" style="padding-bottom:12px;">
         <div class="flex items-center gap-2 flex-wrap" style="margin-bottom:4px;">
-          <span class="syne text-xs" style="color:#fbbf24; font-weight:700;">${esc(shortDate(card.date))}</span>
+          <span class="syne text-xs" style="color:#fde047; font-weight:700;">${esc(shortDate(card.date))}</span>
           ${isNewFilm(card.filmKey) ? '<span class="text-xs font-bold" style="color:#f472b6; letter-spacing:0.05em;">NEU</span>' : ''}
         </div>
         <h3 class="syne text-white leading-tight" style="font-size:1.05rem; letter-spacing:-0.01em; margin-bottom:4px;">${esc(card.title)}</h3>
@@ -188,7 +188,7 @@ function renderShowCard(s) {
     <article class="film-card rounded-2xl overflow-hidden">
       <div class="card-stripe"></div>
       <div class="p-4" style="padding-bottom:12px;">
-        <span class="syne text-xs" style="color:#fbbf24; font-weight:700;">${esc(shortDate(s.date))} · ${esc(s.time)}</span>
+        <span class="syne text-xs" style="color:#fde047; font-weight:700;">${esc(shortDate(s.date))} · ${esc(s.time)}</span>
         <h3 class="syne text-white leading-tight" style="font-size:1.05rem; letter-spacing:-0.01em; margin:4px 0;">${esc(s.title)}</h3>
         <p class="text-xs" style="color:rgba(255,255,255,0.65);">${esc(c.city)}${s.version !== 'DF' ? ' · ' + esc(VERSION_LABEL[s.version] || s.version) : ''}</p>
         ${renderCinemaRows([s])}
@@ -285,9 +285,9 @@ function renderCalendar() {
           const isToday = dateStr === todayStr
           const isPast = dateStr < todayStr
           return `
-            <button data-date="${dateStr}" style="aspect-ratio:1; border-radius:12px; font-size:14px; font-weight:${isToday ? 700 : 500}; display:flex; align-items:center; justify-content:center; position:relative; ${isPast ? 'opacity:0.25;' : ''} color:${!n && !isSelected && !isToday ? 'rgba(255,255,255,0.25)' : 'white'}; background:${isSelected ? 'rgba(225,29,72,0.5)' : n ? 'rgba(251,191,36,0.1)' : 'transparent'}; border:1px solid ${isSelected ? 'rgba(251,191,36,0.7)' : n ? 'rgba(251,191,36,0.25)' : isToday ? 'rgba(255,255,255,0.2)' : 'transparent'}; ${isToday ? 'box-shadow:0 0 0 2px rgba(253,230,138,0.85);' : ''} padding:4px; cursor:pointer;" aria-pressed="${isSelected}" aria-label="${day}.${n ? ', ' + n + (n === 1 ? ' Film' : ' Filme') : ''}${isToday ? ', heute' : ''}">
+            <button data-date="${dateStr}" style="aspect-ratio:1; border-radius:12px; font-size:14px; font-weight:${isToday ? 700 : 500}; display:flex; align-items:center; justify-content:center; position:relative; ${isPast ? 'opacity:0.25;' : ''} color:${!n && !isSelected && !isToday ? 'rgba(255,255,255,0.25)' : 'white'}; background:${isSelected ? 'rgba(159,29,63,0.5)' : n ? 'rgba(253,186,116,0.1)' : 'transparent'}; border:1px solid ${isSelected ? 'rgba(253,186,116,0.7)' : n ? 'rgba(253,186,116,0.25)' : isToday ? 'rgba(255,255,255,0.2)' : 'transparent'}; ${isToday ? 'box-shadow:0 0 0 2px rgba(254,215,170,0.85);' : ''} padding:4px; cursor:pointer;" aria-pressed="${isSelected}" aria-label="${day}.${n ? ', ' + n + (n === 1 ? ' Film' : ' Filme') : ''}${isToday ? ', heute' : ''}">
               ${day}
-              ${n ? `<span aria-hidden="true" style="position:absolute; bottom:5px; left:0; right:0; display:flex; justify-content:center; gap:2px;">${Array.from({ length: n <= 5 ? 1 : n <= 15 ? 2 : 3 }, () => '<i style="width:4px; height:4px; border-radius:50%; background:#fcd34d; display:block;"></i>').join('')}</span>` : ''}
+              ${n ? `<span aria-hidden="true" style="position:absolute; bottom:5px; left:0; right:0; display:flex; justify-content:center; gap:2px;">${Array.from({ length: n <= 5 ? 1 : n <= 15 ? 2 : 3 }, () => '<i style="width:4px; height:4px; border-radius:50%; background:#fdba74; display:block;"></i>').join('')}</span>` : ''}
             </button>`
         }).join('')}
       </div>
@@ -347,7 +347,7 @@ function renderHeader() {
             <span style="font-size:${big};">C</span>INE<span style="font-size:${big};">L</span>ORDS
           </h1>
         </div>
-        <div class="syne text-right header-tagline" style="color:rgba(251,191,36,0.75); font-weight:700; font-size:min(0.52em, 1.95vw); line-height:1.3; text-transform:uppercase; overflow:hidden; white-space:nowrap; ${firstRender ? 'animation:tagline-appear 2.4s ease-in-out 2.8s both;' : ''}">
+        <div class="syne text-right header-tagline" style="color:rgba(253,186,116,0.75); font-weight:700; font-size:min(0.52em, 1.95vw); line-height:1.3; text-transform:uppercase; overflow:hidden; white-space:nowrap; ${firstRender ? 'animation:tagline-appear 2.4s ease-in-out 2.8s both;' : ''}">
           KINOPROGRAMM IN<br>BERLIN UND LEIPZIG
         </div>
       </div>
@@ -356,16 +356,16 @@ function renderHeader() {
 
 const INPUT_WRAP = 'display:flex; border-radius:12px; overflow:hidden; border:1px solid rgba(255,255,255,0.12); background:rgba(255,255,255,0.06);'
 const INPUT_INNER = "flex:1; min-width:0; padding:10px 14px; color:white; outline:none; background:transparent; border:none; font-family:'DM Sans',sans-serif;"
-const PRIMARY_BG = 'background:linear-gradient(135deg, rgba(225,29,72,0.6), rgba(245,158,11,0.55));'
+const PRIMARY_BG = 'background:linear-gradient(135deg, rgba(159,29,63,0.6), rgba(249,115,22,0.55));'
 
 function renderAccountBox() {
-  if (currentUser) return `<div class="mb-2" style="display:flex; align-items:center; justify-content:space-between; gap:8px; font-size:12px; color:rgba(255,255,255,0.65);"><button type="button" data-open-help style="background:none; border:none; cursor:pointer; padding:12px 6px; margin:-12px -6px; font-size:12px; font-weight:600; color:#fcd34d;">? Hilfe</button><span style="min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${esc(currentUser.email)} · <button type="button" id="logout-btn" style="background:none; border:none; color:inherit; font-size:12px; cursor:pointer; text-decoration:underline; padding:12px 6px; margin:-12px -6px;">Abmelden</button></span></div>`
+  if (currentUser) return `<div class="mb-2" style="display:flex; align-items:center; justify-content:space-between; gap:8px; font-size:12px; color:rgba(255,255,255,0.65);"><button type="button" data-open-help style="background:none; border:none; cursor:pointer; padding:12px 6px; margin:-12px -6px; font-size:12px; font-weight:600; color:#fdba74;">? Hilfe</button><span style="min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${esc(currentUser.email)} · <button type="button" id="logout-btn" style="background:none; border:none; color:inherit; font-size:12px; cursor:pointer; text-decoration:underline; padding:12px 6px; margin:-12px -6px;">Abmelden</button></span></div>`
   let email = ''
   try { email = localStorage.getItem('cine-email') || '' } catch {}
   return `
     <div class="glass rounded-2xl p-4 mb-4">
       <div id="login-step-1">
-        <p style="font-size:12px; color:rgba(255,255,255,0.72); line-height:1.5; margin-bottom:10px;">Melde Dich an, um Vorstellungen zu merken. <button type="button" data-open-help style="background:none; border:none; padding:0; color:#fcd34d; cursor:pointer; text-decoration:underline; font-size:12px;">Mehr in der Hilfe</button></p>
+        <p style="font-size:12px; color:rgba(255,255,255,0.72); line-height:1.5; margin-bottom:10px;">Melde Dich an, um Vorstellungen zu merken. <button type="button" data-open-help style="background:none; border:none; padding:0; color:#fdba74; cursor:pointer; text-decoration:underline; font-size:12px;">Mehr in der Hilfe</button></p>
         <div style="${INPUT_WRAP}">
           <input id="login-email" type="email" autocomplete="email" aria-label="E-Mail" placeholder="E-Mail für die Merkliste..." value="${esc(email)}" style="${INPUT_INNER}" />
           <button id="login-btn" type="button" class="syne text-sm font-semibold px-4" style="${PRIMARY_BG} border:none; color:white; white-space:nowrap; cursor:pointer; flex-shrink:0;">Code senden</button>
@@ -386,7 +386,7 @@ function renderAccountBox() {
 function renderFilters() {
   const cinemas = CINEMAS.filter(c => c.city === filters.city).sort((a, b) => a.name.localeCompare(b.name, 'de'))
   const seg = 'display:flex; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.07); border-radius:10px; padding:3px;'
-  const segBtn = active => `flex:1; min-height:44px; padding:0 4px; border-radius:7px; cursor:pointer; border:none; ${active ? 'background:linear-gradient(135deg,rgba(225,29,72,0.55),rgba(245,158,11,0.45)); color:white; box-shadow:0 1px 8px rgba(225,29,72,0.25);' : 'background:transparent; color:rgba(255,255,255,0.65);'}`
+  const segBtn = active => `flex:1; min-height:44px; padding:0 4px; border-radius:7px; cursor:pointer; border:none; ${active ? 'background:linear-gradient(135deg,rgba(159,29,63,0.55),rgba(249,115,22,0.45)); color:white; box-shadow:0 1px 8px rgba(159,29,63,0.25);' : 'background:transparent; color:rgba(255,255,255,0.65);'}`
   const field = 'width:100%; min-height:44px; padding:10px 12px; border-radius:10px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.08); color:white; outline:none;'
   return `
     <div class="glass rounded-2xl p-3 mb-5" style="display:flex; flex-direction:column; gap:8px;">
@@ -418,11 +418,11 @@ function renderBottomNav() {
     { id: 'gemerkt', label: 'Gemerkt', badge: count, icon: `<svg width="22" height="22" viewBox="0 0 24 24" fill="${count ? 'rgba(244,114,182,0.7)' : 'none'}" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>` }
   ]
   return `
-    <nav aria-label="Ansicht" style="max-width:576px; margin:0 auto; background:rgba(16,4,8,0.96); backdrop-filter:blur(24px); -webkit-backdrop-filter:blur(24px); border-top:1px solid rgba(255,255,255,0.07); display:flex; padding-bottom:env(safe-area-inset-bottom,0px);">
+    <nav aria-label="Ansicht" style="max-width:576px; margin:0 auto; background:rgba(18,3,9,0.96); backdrop-filter:blur(24px); -webkit-backdrop-filter:blur(24px); border-top:1px solid rgba(255,255,255,0.07); display:flex; padding-bottom:env(safe-area-inset-bottom,0px);">
       ${tabs.map(t => {
         const active = currentView === t.id
         return `<button type="button" data-nav="${t.id}" ${active ? 'aria-current="page"' : ''} style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; padding:10px 4px 11px; background:none; border:none; cursor:pointer; color:${active ? 'white' : 'rgba(255,255,255,0.5)'}; position:relative; transition:color 0.2s;">
-          ${active ? '<span style="position:absolute; top:0; left:50%; transform:translateX(-50%); width:28px; height:2px; background:linear-gradient(90deg,#e11d48,#fbbf24); border-radius:0 0 3px 3px;"></span>' : ''}
+          ${active ? '<span style="position:absolute; top:0; left:50%; transform:translateX(-50%); width:28px; height:2px; background:linear-gradient(90deg,#9f1d3f,#fdba74); border-radius:0 0 3px 3px;"></span>' : ''}
           <span style="position:relative; display:inline-block;">
             ${t.icon}
             ${t.badge > 0 ? `<span aria-label="${t.badge} gemerkt" style="position:absolute; top:-4px; right:-6px; min-width:16px; height:16px; border-radius:8px; background:#f472b6; color:white; font-size:10px; font-weight:700; display:flex; align-items:center; justify-content:center; padding:0 3px;">${t.badge > 99 ? '99+' : t.badge}</span>` : ''}
@@ -508,7 +508,7 @@ function openHelp() {
               <button type="button" data-close-help aria-label="Schließen" style="width:44px; height:44px; color:rgba(255,255,255,0.7); background:none; border:none; cursor:pointer; font-size:24px; line-height:1;">×</button>
             </div>
             ${GUIDE.map(([head, items], i) => `
-              <h3 class="syne" style="margin:${i === 0 ? '8px' : '18px'} 0 6px; padding-top:12px; border-top:1px solid rgba(255,255,255,0.06); font-size:12px; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#fcd34d;">${esc(head)}</h3>
+              <h3 class="syne" style="margin:${i === 0 ? '8px' : '18px'} 0 6px; padding-top:12px; border-top:1px solid rgba(255,255,255,0.06); font-size:12px; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#fdba74;">${esc(head)}</h3>
               <ul style="list-style:disc; padding-left:18px; margin:0;">
                 ${items.map(([lead, text]) => `<li class="text-xs" style="color:rgba(255,255,255,0.68); line-height:1.5; margin-top:6px;"><strong style="color:white; font-weight:700;">${esc(lead)}:</strong> ${guideText(text)}</li>`).join('')}
               </ul>`).join('')}
@@ -540,11 +540,11 @@ function openSheet(id, opener) {
     <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title">
       <div aria-hidden="true" style="width:40px; height:4px; border-radius:2px; background:rgba(255,255,255,0.25); margin:0 auto 12px;"></div>
       <h2 id="sheet-title" class="syne text-white" style="font-size:1.1rem; font-weight:800; line-height:1.25;">${esc(s.title)}</h2>
-      <p class="text-sm" style="color:rgba(255,255,255,0.72); margin:4px 0 14px; line-height:1.45;">${esc(dayLabel(s.date))}, ${esc(shortDate(s.date))} · ${esc(s.time)} Uhr<br>${esc(c.name)}, ${esc(c.city)}${s.version !== 'DF' ? ` · <span style="color:#fde68a;">${esc(VERSION_LABEL[s.version] || s.version)}</span>` : ''}</p>
+      <p class="text-sm" style="color:rgba(255,255,255,0.72); margin:4px 0 14px; line-height:1.45;">${esc(dayLabel(s.date))}, ${esc(shortDate(s.date))} · ${esc(s.time)} Uhr<br>${esc(c.name)}, ${esc(c.city)}${s.version !== 'DF' ? ` · <span style="color:#fed7aa;">${esc(VERSION_LABEL[s.version] || s.version)}</span>` : ''}</p>
       <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
         <button type="button" data-sheet="bookmarked" aria-pressed="${st === 'bookmarked'}" class="sheet-btn" style="border:1px solid rgba(244,114,182,${st === 'bookmarked' ? 0.7 : 0.35}); background:rgba(244,114,182,${st === 'bookmarked' ? 0.3 : 0.12}); color:#f9a8d4;">♡ ${st === 'bookmarked' ? 'Gemerkt' : 'Merken'}</button>
         <button type="button" data-sheet="going" aria-pressed="${st === 'going'}" class="sheet-btn" style="border:1px solid rgba(52,211,153,${st === 'going' ? 0.7 : 0.35}); background:rgba(52,211,153,${st === 'going' ? 0.28 : 0.1}); color:#6ee7b7;">✓ ${st === 'going' ? 'Dabei' : 'Bin dabei'}</button>
-        ${ticket ? `<a href="${esc(ticket)}" target="_blank" rel="noopener" data-sheet="ticket" class="sheet-btn" style="grid-column:1 / -1; ${PRIMARY_BG} border:1px solid rgba(251,191,36,0.4);">${ICON.ticket} Tickets</a>` : ''}
+        ${ticket ? `<a href="${esc(ticket)}" target="_blank" rel="noopener" data-sheet="ticket" class="sheet-btn" style="grid-column:1 / -1; ${PRIMARY_BG} border:1px solid rgba(253,186,116,0.4);">${ICON.ticket} Tickets</a>` : ''}
         <button type="button" data-sheet="ics" class="sheet-btn btn-glass">${ICON.apple} Kalender</button>
         <button type="button" data-sheet="gcal" class="sheet-btn btn-glass">${ICON.google} Kalender</button>
       </div>
@@ -641,8 +641,8 @@ function showUndoToast(text, onUndo) {
   clearTimeout(undoToastTimer)
   const el = document.createElement('div')
   el.setAttribute('role', 'status')
-  el.style.cssText = 'position:fixed; left:50%; transform:translateX(-50%); bottom:calc(74px + env(safe-area-inset-bottom, 0px)); width:min(92vw,420px); z-index:60; display:flex; align-items:center; gap:8px; padding:2px 2px 2px 16px; background:rgba(34,10,18,0.98); border:1px solid rgba(251,191,36,0.4); border-radius:14px; box-shadow:0 12px 36px rgba(0,0,0,0.6); color:white; font-size:13px;'
-  el.innerHTML = `<span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${esc(text)}</span><button type="button" style="height:44px; padding:0 14px; background:none; border:none; color:#fcd34d; font-weight:700; cursor:pointer; flex-shrink:0;">Rückgängig</button>`
+  el.style.cssText = 'position:fixed; left:50%; transform:translateX(-50%); bottom:calc(74px + env(safe-area-inset-bottom, 0px)); width:min(92vw,420px); z-index:60; display:flex; align-items:center; gap:8px; padding:2px 2px 2px 16px; background:rgba(40,8,20,0.98); border:1px solid rgba(253,186,116,0.4); border-radius:14px; box-shadow:0 12px 36px rgba(0,0,0,0.6); color:white; font-size:13px;'
+  el.innerHTML = `<span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${esc(text)}</span><button type="button" style="height:44px; padding:0 14px; background:none; border:none; color:#fdba74; font-weight:700; cursor:pointer; flex-shrink:0;">Rückgängig</button>`
   el.querySelector('button').addEventListener('click', () => { el.remove(); onUndo() })
   document.body.appendChild(el)
   undoToastEl = el
@@ -652,8 +652,8 @@ function showUndoToast(text, onUndo) {
 function showToast(title, body, duration = 2500) {
   const el = document.createElement('div')
   el.setAttribute('role', 'status')
-  el.style.cssText = 'position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); width:min(90vw,420px); z-index:9999; background:rgba(34,10,18,0.98); border:1px solid rgba(251,191,36,0.4); border-left:4px solid #e11d48; color:white; border-radius:16px; padding:18px 20px; font-size:14px; box-shadow:0 25px 60px rgba(0,0,0,0.7); cursor:pointer;'
-  el.innerHTML = `<strong class="syne" style="color:#fcd34d; font-size:15px;">${esc(title)}</strong><br><span style="color:rgba(255,255,255,0.85);">${esc(body)}</span>`
+  el.style.cssText = 'position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); width:min(90vw,420px); z-index:9999; background:rgba(40,8,20,0.98); border:1px solid rgba(253,186,116,0.4); border-left:4px solid #9f1d3f; color:white; border-radius:16px; padding:18px 20px; font-size:14px; box-shadow:0 25px 60px rgba(0,0,0,0.7); cursor:pointer;'
+  el.innerHTML = `<strong class="syne" style="color:#fdba74; font-size:15px;">${esc(title)}</strong><br><span style="color:rgba(255,255,255,0.85);">${esc(body)}</span>`
   el.addEventListener('click', () => el.remove())
   document.body.appendChild(el)
   setTimeout(() => el.remove(), duration)
@@ -944,8 +944,8 @@ export async function renderApp(el) {
   el.innerHTML = `
     <div id="ptr-indicator" style="text-align:center; height:0; overflow:hidden; transition:height 0.2s; color:rgba(255,255,255,0.65); font-size:13px; display:flex; align-items:center; justify-content:center;">↻ Aktualisieren...</div>
     <div class="noise app-bg min-h-screen">
-      <div style="position:fixed; top:-10%; left:-10%; width:50vw; height:50vw; background:radial-gradient(circle, rgba(225,29,72,0.1) 0%, transparent 70%); pointer-events:none; z-index:0;"></div>
-      <div style="position:fixed; bottom:-10%; right:-10%; width:40vw; height:40vw; background:radial-gradient(circle, rgba(245,158,11,0.09) 0%, transparent 70%); pointer-events:none; z-index:0;"></div>
+      <div style="position:fixed; top:-10%; left:-10%; width:50vw; height:50vw; background:radial-gradient(circle, rgba(159,29,63,0.1) 0%, transparent 70%); pointer-events:none; z-index:0;"></div>
+      <div style="position:fixed; bottom:-10%; right:-10%; width:40vw; height:40vw; background:radial-gradient(circle, rgba(249,115,22,0.09) 0%, transparent 70%); pointer-events:none; z-index:0;"></div>
       <div id="app-inner" class="relative z-10 max-w-xl mx-auto px-4 pb-28"></div>
     </div>
     <div id="modal-root"></div>

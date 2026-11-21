@@ -55,7 +55,7 @@ function detectVersion(...texts) {
 const TITLE_NOISE = /\s*[([]?\b(omu|omdu|omeu|om\s*e?\.?\s*u|ov|of|df|o\.v\.|3d|2d|imax|dolby\s*atmos)\b[)\]]?\s*/gi
 function cleanTitle(title) {
   return String(title || '').replace(/\s*\((wa:?\s*\d{4}|\d{4}|[^()]*\b(ut|untertitel|subtitles|fsk\s*folgt))\)/gi, ' ').replace(/\s*\([A-Z]{2,3}\)\s*$/, '')
-    .replace(/\s*[-–]?\s*\b(ausverkauft|ab\s*\d{1,2}(\s*j(ahren)?)?)\s*$/i, '').replace(TITLE_NOISE, ' ').replace(/\s*[-–|:]\s*$/, '').replace(/\s+/g, ' ').trim()
+    .replace(/\s*[-–,]?\s*\b(ausverkauft|ab\s*\d{1,2}(\s*j(ahren)?)?)\s*$/i, '').replace(TITLE_NOISE, ' ').replace(/\s*[-–|:]\s*$/, '').replace(/\s+/g, ' ').trim()
 }
 function filmKey(title) {
   return cleanTitle(title).toLowerCase()

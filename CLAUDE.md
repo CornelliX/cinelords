@@ -40,7 +40,7 @@ Both apps run on the same github.io origin and share localStorage, sessionStorag
 
 ## UI rules
 
-Touch targets >= 44 px, inputs 16 px (zoom stays allowed), faint text >= 0.6 alpha. Every touch interaction needs a click equivalent on desktop. Escape all output (`esc`), hrefs through `safeUrl`, ICS fields through `icsEscape`. Accent Kinorot -> Gold (`#e11d48` -> `#fbbf24`), background `#14040a`.
+Touch targets >= 44 px, inputs 16 px (zoom stays allowed), faint text >= 0.6 alpha. Every touch interaction needs a click equivalent on desktop. Escape all output (`esc`), hrefs through `safeUrl`, ICS fields through `icsEscape`. Colours: main tone velvety deep wine red (background gradient `#12030a` -> `#3a0b1f`, wine `#6b0f2a`/`#9f1d3f`, logo `#b3244b`), accents mid orange `#f97316` and light orange `#fdba74`/`#fed7aa`, dates yellow `#fde047`; status pink `#f472b6` (gemerkt), green `#34d399` (dabei).
 
 ## Later phases (not built yet)
 
