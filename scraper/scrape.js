@@ -361,7 +361,11 @@ async function scrapeZooPalast() {
     await page.setUserAgent(UA)
     await page.setViewport({ width: 1300, height: 1000 })
     await page.goto(base + '/programm', { waitUntil: 'networkidle2', timeout: 60000 })
-    await page.evaluate(() => [...document.querySelectorAll('button')].find(b => /ablehnen|nur notwendige/i.test(b.innerText))?.click())
+    // Der Cookie-Dialog sperrt das Scrollen (html.cdk-global-scrollblock), ohne Scrollen lädt keine Filmliste.
+    // Er erscheint je nach Rechner verzögert: auf den Knopf warten, ablehnen, warten bis die Sperre weg ist.
+    await page.waitForFunction(() => [...document.querySelectorAll('button')].some(b => /alle ablehnen/i.test(b.innerText)), { timeout: 15000 }).catch(() => {})
+    await page.evaluate(() => [...document.querySelectorAll('button')].find(b => /alle ablehnen/i.test(b.innerText))?.click())
+    await page.waitForFunction(() => !document.documentElement.classList.contains('cdk-global-scrollblock'), { timeout: 10000 }).catch(() => {})
     await page.waitForSelector('swiper-slide[data-iso]', { timeout: 20000 })
     const from = today().replace(/-/g, ''), to = lastDay().replace(/-/g, '')
     const days = (await page.$$eval('swiper-slide[data-iso]', ss => ss.map(s => s.dataset.iso))).filter(d => d >= from && d <= to)
@@ -399,7 +403,7 @@ async function scrapeZooPalast() {
       out.push(...rows.filter(r => r.title && r.time).map(r => ({ title: r.title, date, time: parseTime(r.time), locationId: 30,
         version: detectVersion(r.flags), ticketUrl: r.href ? base + r.href : base + '/programm', source: 'zoopalast' })))
     }
-    if (!out.length) console.log(`  zoopalast: ${days.length} Tage, Filmboxen ${await page.$$eval('app-movie-box', b => b.length)}, Fehler: ${failed.slice(0, 12).join(', ') || 'keine'}`)
+    if (!out.length) console.log(`  zoopalast: ${days.length} Tage, Filmboxen ${await page.$$eval('app-movie-box', b => b.length)}, Scrollsperre ${await page.evaluate(() => document.documentElement.classList.contains('cdk-global-scrollblock'))}, Fehler: ${failed.slice(0, 12).join(', ') || 'keine'}`)
     return out
   } finally { await page.close() }
 }
