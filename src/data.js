@@ -44,6 +44,7 @@ export const CINEMAS = [
   { id: 27, name: 'Cinema Paris', city: 'Berlin' },
   { id: 28, name: 'CineStar Cubix', city: 'Berlin' },
   { id: 29, name: 'CineMotion Hohenschönhausen', city: 'Berlin' },
+  { id: 30, name: 'Zoo Palast', city: 'Berlin' },
   { id: 31, name: 'Passage Kinos', city: 'Leipzig' },
   { id: 32, name: 'Schaubühne Lindenfels', city: 'Leipzig' },
   { id: 33, name: 'Cineding', city: 'Leipzig' },

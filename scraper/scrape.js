@@ -349,6 +349,56 @@ async function scrapeCinestar() {
 
 // ─── CineMotion Hohenschönhausen (Programmseite rendert per JS; "Alle Vorstellungen" zeigt alle Tage) ─
 
+// ─── Zoo Palast (premiumkino, Angular): je Tag ein Datums-Reiter (data-iso), je Film eine app-movie-box ─
+// kinoheld führt für den Zoo Palast nur Sonder- und Vorverkaufstermine, daher die öffentliche Programmseite selbst.
+
+async function scrapeZooPalast() {
+  const base = 'https://zoopalast.premiumkino.de', page = await (await browser()).newPage()
+  try {
+    await page.setUserAgent(UA)
+    await page.setViewport({ width: 1300, height: 1000 })
+    await page.goto(base + '/programm', { waitUntil: 'networkidle2', timeout: 60000 })
+    await page.evaluate(() => [...document.querySelectorAll('button')].find(b => /ablehnen|nur notwendige/i.test(b.innerText))?.click())
+    await page.waitForSelector('swiper-slide[data-iso]', { timeout: 20000 })
+    const from = today().replace(/-/g, ''), to = lastDay().replace(/-/g, '')
+    const days = (await page.$$eval('swiper-slide[data-iso]', ss => ss.map(s => s.dataset.iso))).filter(d => d >= from && d <= to)
+    const out = []
+    const grab = () => page.$$eval('app-movie-box', boxes => boxes.flatMap(b => {
+      const title = b.querySelector('h3')?.innerText.trim() || '', href = b.querySelector('a[href^="/film/"]')?.getAttribute('href') || ''
+      return [...b.querySelectorAll('app-movie-performance-button')].map(pb => {
+        const lines = [...pb.querySelectorAll('button > div')].map(d => d.innerText.trim())
+        return { title, href, time: lines.find(l => /^\d{1,2}:\d{2}$/.test(l)) || '', flags: lines.slice(-1)[0] || '' }
+      })
+    }))
+    // Die Seite scrollt nicht das Fenster, sondern einen inneren Container (den größten scrollbaren)
+    const scroll = by => page.evaluate(by => {
+      const el = [...document.querySelectorAll('*')].filter(e => /auto|scroll/.test(getComputedStyle(e).overflowY) && e.scrollHeight > e.clientHeight + 10)
+        .sort((a, b) => b.clientHeight - a.clientHeight)[0] || document.scrollingElement
+      if (by === 0) el.scrollTop = 0; else el.scrollTop += by
+      return el.scrollTop + el.clientHeight >= el.scrollHeight - 5
+    }, by)
+    for (const iso of days) {
+      await scroll(0)
+      await page.evaluate(d => document.querySelector(`swiper-slide[data-iso="${d}"]`)?.click(), iso)
+      await new Promise(r => setTimeout(r, 1500))
+      // Die Filmliste lädt erst beim Scrollen nach: bis ans Ende scrollen und unterwegs alles einsammeln
+      const seen = new Map()
+      for (let i = 0, idle = 0; i < 60 && idle < 3; i++) {
+        const before = seen.size
+        for (const r of await grab()) seen.set(`${r.title}|${r.time}|${r.flags}`, r)
+        const atEnd = await scroll(800)
+        await new Promise(r => setTimeout(r, 700))
+        idle = seen.size === before && atEnd ? idle + 1 : 0
+      }
+      const rows = [...seen.values()]
+      const date = `${iso.slice(0, 4)}-${iso.slice(4, 6)}-${iso.slice(6)}`
+      out.push(...rows.filter(r => r.title && r.time).map(r => ({ title: r.title, date, time: parseTime(r.time), locationId: 30,
+        version: detectVersion(r.flags), ticketUrl: r.href ? base + r.href : base + '/programm', source: 'zoopalast' })))
+    }
+    return out
+  } finally { await page.close() }
+}
+
 async function scrapeCinemotion() {
   const url = 'https://berlin.cinemotion-kino.de/programmuebersicht/'
   const page = await (await browser()).newPage()
@@ -381,7 +431,7 @@ async function scrapeCinemotion() {
 
 // ─── Ablauf ─────────────────────────────────────────────────────────────────
 
-const SCRAPERS = { cinestar: scrapeCinestar, passage: scrapePassage, cineding: scrapeCineding, regina: scrapeRegina, yorck: scrapeYorck, kinoheld: scrapeKinoheld, cinetixx: scrapeCinetixx, babylon: scrapeBabylon, arsenal: scrapeArsenal, brotfabrik: scrapeBrotfabrik, cinemotion: scrapeCinemotion, schauburg: scrapeSchauburg }
+const SCRAPERS = { cinestar: scrapeCinestar, passage: scrapePassage, cineding: scrapeCineding, regina: scrapeRegina, yorck: scrapeYorck, kinoheld: scrapeKinoheld, cinetixx: scrapeCinetixx, babylon: scrapeBabylon, arsenal: scrapeArsenal, brotfabrik: scrapeBrotfabrik, cinemotion: scrapeCinemotion, schauburg: scrapeSchauburg, zoopalast: scrapeZooPalast }
 
 async function main() {
   const only = process.argv[2]
@@ -409,7 +459,7 @@ async function main() {
   // "Neu"-Markierung pro Film: Datum, an dem der Film zum ersten Mal im Programm stand
   const firstSeen = new Map(old.map(s => [s.filmKey, s.addedAt]))
   const seen = new Set()
-  all = all.filter(s => { const k = `${s.locationId}|${s.date}|${s.time}|${s.filmKey}`; return !seen.has(k) && seen.add(k) })
+  all = all.filter(s => { const k = `${s.locationId}|${s.date}|${s.time}|${s.filmKey}|${s.version}`; return !seen.has(k) && seen.add(k) })
     .map(s => ({ id: stableId(`${s.locationId}|${s.date}|${s.time}|${s.filmKey}`), ...s, addedAt: s.addedAt || firstSeen.get(s.filmKey) || from }))
     .sort((a, b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time))
   fs.mkdirSync(path.dirname(outPath), { recursive: true })
