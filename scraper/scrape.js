@@ -380,10 +380,11 @@ async function scrapeZooPalast() {
     for (const iso of days) {
       await scroll(0)
       await page.evaluate(d => document.querySelector(`swiper-slide[data-iso="${d}"]`)?.click(), iso)
-      await new Promise(r => setTimeout(r, 1500))
-      // Die Filmliste lädt erst beim Scrollen nach: bis ans Ende scrollen und unterwegs alles einsammeln
+      await page.waitForNetworkIdle({ idleTime: 800, timeout: 15000 }).catch(() => {})
+      // Die Filmliste lädt erst beim Scrollen nach: bis ans Ende scrollen und unterwegs alles einsammeln.
+      // Solange noch nichts da ist (langsamer CI-Rechner), bis zu ~25 Runden weiter anstoßen statt aufzugeben.
       const seen = new Map()
-      for (let i = 0, idle = 0; i < 60 && idle < 3; i++) {
+      for (let i = 0, idle = 0; i < 80 && (idle < 3 || (!seen.size && i < 25)); i++) {
         const before = seen.size
         for (const r of await grab()) seen.set(`${r.title}|${r.time}|${r.flags}`, r)
         const atEnd = await scroll(800)
@@ -395,6 +396,7 @@ async function scrapeZooPalast() {
       out.push(...rows.filter(r => r.title && r.time).map(r => ({ title: r.title, date, time: parseTime(r.time), locationId: 30,
         version: detectVersion(r.flags), ticketUrl: r.href ? base + r.href : base + '/programm', source: 'zoopalast' })))
     }
+    if (!out.length) console.log(`  zoopalast: ${days.length} Tage, Seite: ${(await page.evaluate(() => document.body.innerText)).replace(/\s+/g, ' ').slice(0, 300)}`)
     return out
   } finally { await page.close() }
 }
