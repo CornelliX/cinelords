@@ -354,6 +354,9 @@ async function scrapeCinestar() {
 
 async function scrapeZooPalast() {
   const base = 'https://zoopalast.premiumkino.de', page = await (await browser()).newPage()
+  const failed = []   // Diagnose: fehlgeschlagene Anfragen der Seite (nur Status und Pfad, für das Protokoll)
+  page.on('response', r => { if (r.status() >= 400) failed.push(`${r.status()} ${new URL(r.url()).host}${new URL(r.url()).pathname.slice(0, 60)}`) })
+  page.on('requestfailed', r => failed.push(`ERR ${new URL(r.url()).host}${new URL(r.url()).pathname.slice(0, 60)}`))
   try {
     await page.setUserAgent(UA)
     await page.setViewport({ width: 1300, height: 1000 })
@@ -396,7 +399,7 @@ async function scrapeZooPalast() {
       out.push(...rows.filter(r => r.title && r.time).map(r => ({ title: r.title, date, time: parseTime(r.time), locationId: 30,
         version: detectVersion(r.flags), ticketUrl: r.href ? base + r.href : base + '/programm', source: 'zoopalast' })))
     }
-    if (!out.length) console.log(`  zoopalast: ${days.length} Tage, Seite: ${(await page.evaluate(() => document.body.innerText)).replace(/\s+/g, ' ').slice(0, 300)}`)
+    if (!out.length) console.log(`  zoopalast: ${days.length} Tage, Filmboxen ${await page.$$eval('app-movie-box', b => b.length)}, Fehler: ${failed.slice(0, 12).join(', ') || 'keine'}`)
     return out
   } finally { await page.close() }
 }
